@@ -297,7 +297,7 @@ contract RangeProtocolVertexVault is
             );
         }
 
-        // signed balance should not be zero.
+        // signed balance should not be less than zero.
         if (signedBalance < 0) {
             revert VaultErrors.VaultIsUnderWater();
         }
