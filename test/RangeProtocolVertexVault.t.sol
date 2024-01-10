@@ -87,10 +87,21 @@ contract RangeProtocolVertexVaultTest is Test {
     function testBurn() external {
         uint256 amount = vault.balanceOf(manager) * 8000 / 10_000;
         uint256 expectedAmount = vault.getUnderlyingBalanceByShare(amount);
+        uint256 expectedManagerBalance = vault.managerBalance()
+            + (expectedAmount * 10_000 / 9900) - expectedAmount;
 
         vm.expectEmit();
         emit Burned(manager, amount, expectedAmount);
         vault.burn(amount);
+
+        assertEq(vault.managerBalance(), expectedManagerBalance);
+        uint256 managerAccountBalanceBefore = usdc.balanceOf(manager);
+        vault.collectManagerFee();
+        assertEq(vault.managerBalance(), 0);
+        assertEq(
+            usdc.balanceOf(manager),
+            managerAccountBalanceBefore + expectedManagerBalance
+        );
     }
 
     //    function testBurnWithZeroRedeemableAmount() external {

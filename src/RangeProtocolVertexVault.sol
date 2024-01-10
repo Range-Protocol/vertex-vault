@@ -301,8 +301,15 @@ contract RangeProtocolVertexVault is
         if (signedBalance < 0) {
             revert VaultErrors.VaultIsUnderWater();
         }
-        return _toXTokenDecimals(uint256(signedBalance))
-            + depositToken.balanceOf(address(this)) - managerBalance;
+
+        // We optimistically assume that managerBalance will always be part of passive balance
+        // but in the event, it is not there, we add this check to avoid the underflow.
+        uint256 passiveBalance = depositToken.balanceOf(address(this));
+        if (passiveBalance > managerBalance) {
+            passiveBalance -= managerBalance;
+        }
+
+        return _toXTokenDecimals(uint256(signedBalance)) + passiveBalance;
     }
 
     function getUnderlyingBalanceByShare(uint256 shares)
