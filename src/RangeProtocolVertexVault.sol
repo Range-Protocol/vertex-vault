@@ -69,6 +69,10 @@ contract RangeProtocolVertexVault is
     uint256 public constant MAX_MANAGING_FEE = 1000;
     uint256 public constant X18_MULTIPLIER = 10 ** 18;
 
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @notice initializes the vault.
      * @param _spotEngine address of {spotEngine} contract of Vertex Protocol.
