@@ -9,7 +9,12 @@ interface IRangeProtocolVertexVault {
     event ManagingFeeSet(uint256 managingFee);
 
     function mint(uint256 amount) external returns (uint256 shares);
-    function burn(uint256 shares) external returns (uint256 amount);
+    function burn(
+        uint256 shares,
+        uint256 minAmount
+    )
+        external
+        returns (uint256 amount);
     function addProduct(uint256 productId) external;
     function removeProduct(uint256 productId) external;
     function multicallByManager(

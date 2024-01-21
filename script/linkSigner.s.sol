@@ -8,7 +8,7 @@ import { ERC1967Proxy } from
 import { RangeProtocolVertexVault } from '../src/RangeProtocolVertexVault.sol';
 import { ISpotEngine } from '../src/interfaces/vertex/ISpotEngine.sol';
 import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
-import { IEndPoint } from '../src/interfaces/vertex/IEndPoint.sol';
+import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
 import { IUSDC } from './interfaces/IUSDC.sol';
 
 contract linkSigner is Script {
@@ -28,8 +28,8 @@ contract linkSigner is Script {
         ISpotEngine(0x32d91Af2B17054D575A7bF1ACfa7615f41CCEfaB);
     IPerpEngine perpEngine =
         IPerpEngine(0xb74C78cca0FADAFBeE52B2f48A67eE8c834b5fd1);
-    IEndPoint endPoint = IEndPoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
-    IUSDC usdc = IUSDC(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
+    IEndpoint endpoint = IEndpoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
+    IUSDC usdc = IUSDC(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     address manager = 0x2B986A355F5676F77687A84b3209Af8654b2C6aa;
     address externalAccount = 0x2B986A355F5676F77687A84b3209Af8654b2C6aa;
     address contractAccount = 0xCb60Ca32B25b4E11cD1959514d77356D58d3E138;
@@ -48,12 +48,12 @@ contract linkSigner is Script {
         uint256[] memory values = new uint256[](2);
 
         targets[0] = address(usdc);
-        data[0] = abi.encodeCall(IUSDC.approve, (address(endPoint), 1e6));
+        data[0] = abi.encodeCall(IUSDC.approve, (address(endpoint), 1e6));
         values[0] = 0;
 
-        targets[1] = address(endPoint);
+        targets[1] = address(endpoint);
         data[1] = abi.encodeCall(
-            IEndPoint.submitSlowModeTransaction,
+            IEndpoint.submitSlowModeTransaction,
             abi.encodePacked(
                 uint8(19),
                 abi.encode(

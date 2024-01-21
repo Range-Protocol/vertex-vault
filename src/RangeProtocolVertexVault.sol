@@ -23,7 +23,7 @@ import { RangeProtocolVertexVaultStorage } from
 import { FullMath } from './libraries/FullMath.sol';
 import { IPerpEngine } from './interfaces/vertex/IPerpEngine.sol';
 import { ISpotEngine } from './interfaces/vertex/ISpotEngine.sol';
-import { IEndPoint } from './interfaces/vertex/IEndPoint.sol';
+import { IEndpoint } from './interfaces/vertex/IEndpoint.sol';
 import { VaultErrors } from './errors/VaultErrors.sol';
 
 /**
@@ -77,7 +77,7 @@ contract RangeProtocolVertexVault is
      * @notice initializes the vault.
      * @param _spotEngine address of {spotEngine} contract of Vertex Protocol.
      * @param _perpEngine address of {perpEngine} contract of Vertex Protocol.
-     * @param _endPoint address of {endPoint} contract of Vertex Protocol.
+     * @param _endpoint address of {endpoint} contract of Vertex Protocol.
      * @param _depositToken address of {depositToken} accepted as deposit asset
      * by the vault.
      * @param _manager address of vault's manager.
@@ -87,7 +87,7 @@ contract RangeProtocolVertexVault is
     function initialize(
         ISpotEngine _spotEngine,
         IPerpEngine _perpEngine,
-        IEndPoint _endPoint,
+        IEndpoint _endpoint,
         IERC20 _depositToken,
         address _manager,
         string calldata _name,
@@ -99,7 +99,7 @@ contract RangeProtocolVertexVault is
         if (
             _perpEngine == IPerpEngine(address(0x0))
                 || _spotEngine == ISpotEngine(address(0x0))
-                || _endPoint == IEndPoint(address(0x0))
+                || _endpoint == IEndpoint(address(0x0))
                 || _depositToken == IERC20(address(0x0)) || _manager == address(0x0)
         ) {
             revert VaultErrors.ZeroAddress();
@@ -114,7 +114,7 @@ contract RangeProtocolVertexVault is
         _transferOwnership(_manager);
         spotEngine = _spotEngine;
         perpEngine = _perpEngine;
-        endPoint = _endPoint;
+        endpoint = _endpoint;
         depositToken = _depositToken;
         contractSubAccount = bytes32(uint256(uint160(address(this))) << 96);
         _setManagingFee(100); // set 1% as managing fee
@@ -144,6 +144,7 @@ contract RangeProtocolVertexVault is
         _mint(msg.sender, shares);
 
         depositToken.safeTransferFrom(msg.sender, address(this), amount);
+        endpoint.depositCollateral(bytes12(0x0), 0, uint128(amount));
         emit Minted(msg.sender, shares, amount);
     }
 
@@ -152,7 +153,10 @@ contract RangeProtocolVertexVault is
      * @param shares the amount of shares to be burned by the user.
      * @return amount the amount of underlying {depositToken} to be redeemed by the user.
      */
-    function burn(uint256 shares)
+    function burn(
+        uint256 shares,
+        uint256 minAmount
+    )
         external
         override
         nonReentrant
@@ -175,6 +179,10 @@ contract RangeProtocolVertexVault is
         _burn(msg.sender, shares);
         _applyManagingFee(amount);
         amount = _netManagingFee(amount);
+
+        if (amount < minAmount) {
+            revert VaultErrors.AmountIsLessThanMinAmount();
+        }
 
         if (depositToken.balanceOf(address(this)) < amount) {
             revert VaultErrors.NotEnoughBalanceInVault();
@@ -223,7 +231,7 @@ contract RangeProtocolVertexVault is
 
     /**
      * @notice allows manager to perform low-level calls to either the {depositToken}
-     * contract for approvals or the {endPoint} contract to submit low-level transactions
+     * contract for approvals or the {endpoint} contract to submit low-level transactions
      * to Vertex Protocol.
      * @param targets the list of {target} addresses to send the call-data to.
      * @param data the list of call-data to send to the correspondingly indexed {target}.
@@ -242,7 +250,7 @@ contract RangeProtocolVertexVault is
         }
         for (uint256 i = 0; i < targets.length; i++) {
             if (
-                targets[i] != address(endPoint)
+                targets[i] != address(endpoint)
                     && targets[i] != address(depositToken)
             ) {
                 revert VaultErrors.InvalidMulticallTarget();
@@ -288,6 +296,7 @@ contract RangeProtocolVertexVault is
      * contract. The margin deposited on Vertex, settled balance on Vertex,
      * PnL from opened perp positions. All of this is summed up to represent
      * the vault holding in {depositToken}.
+     * @return the total holding of the vault in USDC.
      */
     function getUnderlyingBalance() public view override returns (uint256) {
         uint256[] memory _productIds = productIds;
@@ -316,6 +325,12 @@ contract RangeProtocolVertexVault is
         return _toXTokenDecimals(uint256(signedBalance)) + passiveBalance;
     }
 
+    /**
+     * @notice returns the underlying balance redeemable by the provided amounts of {shares}.
+     * @param shares the amounts of shares to calculate the underlying balance against.
+     * @return amount the amount of underlying balance redeemable against the provided
+     * amount of shares.
+     */
     function getUnderlyingBalanceByShare(uint256 shares)
         external
         view

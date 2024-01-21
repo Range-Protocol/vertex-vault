@@ -8,18 +8,18 @@ import { ERC1967Proxy } from
 import { RangeProtocolVertexVault } from '../src/RangeProtocolVertexVault.sol';
 import { ISpotEngine } from '../src/interfaces/vertex/ISpotEngine.sol';
 import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
-import { IEndPoint } from '../src/interfaces/vertex/IEndPoint.sol';
+import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
 import { IUSDC } from './interfaces/IUSDC.sol';
 
-contract Mint is Script {
-    IUSDC usdc = IUSDC(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
+contract mint is Script {
+    IUSDC usdc = IUSDC(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     RangeProtocolVertexVault vault =
         RangeProtocolVertexVault(0xCb60Ca32B25b4E11cD1959514d77356D58d3E138);
 
     function run() external {
         uint256 pk = vm.envUint('PK');
         vm.startBroadcast(pk);
-        uint256 amount = 10e6;
+        uint256 amount = 50e6;
 
         usdc.approve(address(vault), amount);
         vault.mint(amount);

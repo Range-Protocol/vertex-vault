@@ -15,4 +15,5 @@ library VaultErrors {
     error OnlyApproveCallIsAllowedOnDepositToken();
     error InvalidShareAmount();
     error VaultIsUnderWater();
+    error AmountIsLessThanMinAmount();
 }

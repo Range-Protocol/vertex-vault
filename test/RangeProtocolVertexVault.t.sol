@@ -2,19 +2,16 @@
 pragma solidity 0.8.20;
 
 import { Test, console2 } from 'forge-std/Test.sol';
-import { stdStorage, StdStorage } from 'forge-std/Test.sol';
 
 import { RangeProtocolVertexVault } from '../src/RangeProtocolVertexVault.sol';
 import { ISpotEngine } from '../src/interfaces/vertex/ISpotEngine.sol';
 import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
-import { IEndPoint } from '../src/interfaces/vertex/IEndPoint.sol';
+import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
 import { IUSDC } from './IUSDC.sol';
 import { VaultErrors } from '../src/errors/VaultErrors.sol';
 import { FullMath } from '../src/libraries/FullMath.sol';
 
 contract RangeProtocolVertexVaultTest is Test {
-    using stdStorage for StdStorage;
-
     event Minted(address user, uint256 shares, uint256 amount);
     event Burned(address user, uint256 shares, uint256 amount);
     event ProductAdded(uint256 product);
@@ -27,8 +24,8 @@ contract RangeProtocolVertexVaultTest is Test {
         ISpotEngine(0x32d91Af2B17054D575A7bF1ACfa7615f41CCEfaB);
     IPerpEngine perpEngine =
         IPerpEngine(0xb74C78cca0FADAFBeE52B2f48A67eE8c834b5fd1);
-    IEndPoint endPoint = IEndPoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
-    IUSDC usdc = IUSDC(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
+    IEndpoint endpoint = IEndpoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
+    IUSDC usdc = IUSDC(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
 
     RangeProtocolVertexVault vault =
         RangeProtocolVertexVault(0xCb60Ca32B25b4E11cD1959514d77356D58d3E138);
@@ -38,7 +35,7 @@ contract RangeProtocolVertexVaultTest is Test {
         vm.startPrank(manager);
         uint256 fork = vm.createFork(vm.rpcUrl('arbitrum'));
         vm.selectFork(fork);
-        deal(address(usdc), manager, 100_000 * 10 ** 6);
+        //        deal(address(usdc), manager, 100_000 * 10 ** 6);
 
         vault.upgradeToAndCall(address(new RangeProtocolVertexVault()), '');
     }
@@ -55,7 +52,7 @@ contract RangeProtocolVertexVaultTest is Test {
     }
 
     function testMint() external {
-        uint256 amount = 1000 * 10 ** 6;
+        uint256 amount = 1e6;
         usdc.approve(address(vault), amount);
 
         uint256 vaultBalanceBefore = vault.getUnderlyingBalance();
@@ -68,31 +65,39 @@ contract RangeProtocolVertexVaultTest is Test {
             amount
         );
         vault.mint(amount);
-        assertEq(vault.getUnderlyingBalance(), vaultBalanceBefore + amount);
+        assertEq(vault.getUnderlyingBalance(), vaultBalanceBefore);
     }
 
     function testBurnZeroAmount() external {
         vm.expectRevert(VaultErrors.ZeroBurnAmount.selector);
-        vault.burn(0);
+        vault.burn(0, 0);
     }
 
     function testBurnWithoutOwningShares() external {
         vm.stopPrank();
         vm.prank(address(0x1));
         vm.expectRevert();
-        vault.burn(1000);
+        vault.burn(1000, 0);
         vm.startPrank(manager);
     }
 
+    function testBurnWithMoreExpectedAmount() external {
+        uint256 amount = vault.balanceOf(manager) * 100 / 10_000;
+        uint256 expectedAmount = vault.getUnderlyingBalanceByShare(amount);
+
+        vm.expectRevert(VaultErrors.AmountIsLessThanMinAmount.selector);
+        vault.burn(amount, expectedAmount + 1000);
+    }
+
     function testBurn() external {
-        uint256 amount = vault.balanceOf(manager) * 8000 / 10_000;
+        uint256 amount = vault.balanceOf(manager) * 100 / 10_000;
         uint256 expectedAmount = vault.getUnderlyingBalanceByShare(amount);
         uint256 expectedManagerBalance = vault.managerBalance()
             + (expectedAmount * 10_000 / 9900) - expectedAmount;
 
         vm.expectEmit();
         emit Burned(manager, amount, expectedAmount);
-        vault.burn(amount);
+        vault.burn(amount, expectedAmount);
 
         assertEq(vault.managerBalance(), expectedManagerBalance);
         uint256 managerAccountBalanceBefore = usdc.balanceOf(manager);
@@ -188,7 +193,7 @@ contract RangeProtocolVertexVaultTest is Test {
         vm.stopPrank();
         address[] memory targets = new address[](1);
         bytes[] memory data = new bytes[](1);
-        targets[0] = address(endPoint);
+        targets[0] = address(endpoint);
         data[0] = '0x';
         vm.prank(address(0x1));
         vm.expectRevert(bytes('Ownable: caller is not the manager'));
@@ -239,7 +244,7 @@ contract RangeProtocolVertexVaultTest is Test {
     function testMulticallWithEndpoint() external {
         address[] memory targets = new address[](1);
         bytes[] memory data = new bytes[](1);
-        targets[0] = address(endPoint);
+        targets[0] = address(endpoint);
         data[0] = abi.encode(usdc.approve.selector);
         vm.expectRevert(FailedInnerCall.selector);
         vault.multicallByManager(targets, data);
@@ -248,7 +253,7 @@ contract RangeProtocolVertexVaultTest is Test {
     //    function testActual() external {
     ////        address[] memory targets = new address[](1);
     ////        bytes[] memory data = new bytes[](1);
-    ////        targets[0] = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
+    ////        targets[0] = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
     ////        data[0] = abi.encodeWithSignature(
     ////            "approve(address,uint256)",
     ////            0xbbEE07B3e8121227AfCFe1E2B82772246226128e,
@@ -257,8 +262,8 @@ contract RangeProtocolVertexVaultTest is Test {
     //////        address[] memory targets = new address[](1);
     //////        bytes[] memory data = new bytes[](1);
     //////        targets[0] = address(usdc);
-    //////        data[0] = abi.encodePacked(bytes4(usdc.approve.selector), abi.encode(address(endPoint), uint256(1000000)));
-    //////        console2.logBytes(abi.encodePacked(bytes4(usdc.approve.selector), abi.encode(address(endPoint), uint256(1000000))));
+    //////        data[0] = abi.encodePacked(bytes4(usdc.approve.selector), abi.encode(address(endpoint), uint256(1000000)));
+    //////        console2.logBytes(abi.encodePacked(bytes4(usdc.approve.selector), abi.encode(address(endpoint), uint256(1000000))));
     ////        vault.multicallByManager(targets, data);
     ////        address(vault).call(vm.envBytes("data"));
     //    }
