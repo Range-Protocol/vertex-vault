@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 library VaultErrors {
     error ZeroAddress();
     error NotEnoughBalanceInVault();
-    error ZeroMintAmount();
+    error ZeroDepositAmount();
     error ZeroBurnAmount();
     error ProductAlreadyWhitelisted();
     error ProductIsNotWhitelisted();
@@ -12,7 +12,7 @@ library VaultErrors {
     error InvalidManagingFee();
     error InvalidLength();
     error InvalidMulticallTarget();
-    error OnlyApproveCallIsAllowedOnDepositToken();
+    error InvalidApproveCall();
     error InvalidShareAmount();
     error VaultIsUnderWater();
     error AmountIsLessThanMinAmount();

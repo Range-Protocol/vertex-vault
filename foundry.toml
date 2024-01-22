@@ -4,7 +4,7 @@ out = "out"
 libs = ["lib"]
 
 [rpc_endpoints]
-arbitrum = "https://rpc.arb1.arbitrum.gateway.fm"
+arbitrum = "https://arbitrum.llamarpc.com"
 
 [fmt]
 int_types = "long"

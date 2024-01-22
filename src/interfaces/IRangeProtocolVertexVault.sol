@@ -25,7 +25,7 @@ interface IRangeProtocolVertexVault {
     function setManagingFee(uint256 _managingFee) external;
     function collectManagerFee() external;
     function getUnderlyingBalance() external view returns (uint256);
-    function getUnderlyingBalanceByShare(uint256 shares)
+    function getUnderlyingBalanceByShares(uint256 shares)
         external
         view
         returns (uint256 amount);

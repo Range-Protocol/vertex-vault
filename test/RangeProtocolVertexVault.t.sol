@@ -41,7 +41,7 @@ contract RangeProtocolVertexVaultTest is Test {
     }
 
     function testMintWithZeroAmount() external {
-        vm.expectRevert(VaultErrors.ZeroMintAmount.selector);
+        vm.expectRevert(VaultErrors.ZeroDepositAmount.selector);
         vault.mint(0);
     }
 
@@ -65,7 +65,7 @@ contract RangeProtocolVertexVaultTest is Test {
             amount
         );
         vault.mint(amount);
-        assertEq(vault.getUnderlyingBalance(), vaultBalanceBefore);
+        assertEq(vault.getUnderlyingBalance(), vaultBalanceBefore + amount);
     }
 
     function testBurnZeroAmount() external {
@@ -81,9 +81,9 @@ contract RangeProtocolVertexVaultTest is Test {
         vm.startPrank(manager);
     }
 
-    function testBurnWithMoreExpectedAmount() external {
+    function testBurnWithMoreThanExpectedAmount() external {
         uint256 amount = vault.balanceOf(manager) * 100 / 10_000;
-        uint256 expectedAmount = vault.getUnderlyingBalanceByShare(amount);
+        uint256 expectedAmount = vault.getUnderlyingBalanceByShares(amount);
 
         vm.expectRevert(VaultErrors.AmountIsLessThanMinAmount.selector);
         vault.burn(amount, expectedAmount + 1000);
@@ -91,7 +91,7 @@ contract RangeProtocolVertexVaultTest is Test {
 
     function testBurn() external {
         uint256 amount = vault.balanceOf(manager) * 100 / 10_000;
-        uint256 expectedAmount = vault.getUnderlyingBalanceByShare(amount);
+        uint256 expectedAmount = vault.getUnderlyingBalanceByShares(amount);
         uint256 expectedManagerBalance = vault.managerBalance()
             + (expectedAmount * 10_000 / 9900) - expectedAmount;
 
@@ -186,7 +186,7 @@ contract RangeProtocolVertexVaultTest is Test {
     function testUnderlyingBalanceWithInvalidShareAmount() external {
         uint256 shareToQueryUnderlyingBalanceFor = vault.totalSupply() + 1;
         vm.expectRevert(VaultErrors.InvalidShareAmount.selector);
-        vault.getUnderlyingBalanceByShare(shareToQueryUnderlyingBalanceFor);
+        vault.getUnderlyingBalanceByShares(shareToQueryUnderlyingBalanceFor);
     }
 
     function testMulticallWithNonManager() external {
@@ -225,9 +225,20 @@ contract RangeProtocolVertexVaultTest is Test {
         bytes[] memory data = new bytes[](1);
         targets[0] = address(usdc);
         data[0] = abi.encode(bytes4(uint32(0)));
-        vm.expectRevert(
-            VaultErrors.OnlyApproveCallIsAllowedOnDepositToken.selector
-        );
+        vm.expectRevert(VaultErrors.InvalidApproveCall.selector);
+        vault.multicallByManager(targets, data);
+    }
+
+    function testMulticallWithDepositTokenAndApproveFunctionWithNonEndpointAddress(
+    )
+        external
+    {
+        address[] memory targets = new address[](1);
+        bytes[] memory data = new bytes[](1);
+        targets[0] = address(usdc);
+        data[0] =
+            abi.encodeWithSelector(usdc.approve.selector, address(0x1), 123);
+        vm.expectRevert(VaultErrors.InvalidApproveCall.selector);
         vault.multicallByManager(targets, data);
     }
 
@@ -235,9 +246,9 @@ contract RangeProtocolVertexVaultTest is Test {
         address[] memory targets = new address[](1);
         bytes[] memory data = new bytes[](1);
         targets[0] = address(usdc);
-        data[0] = abi.encode(usdc.approve.selector);
-        console2.logBytes(data[0]);
-        vm.expectRevert(FailedInnerCall.selector);
+        data[0] = abi.encodeWithSelector(
+            usdc.approve.selector, address(endpoint), 123
+        );
         vault.multicallByManager(targets, data);
     }
 

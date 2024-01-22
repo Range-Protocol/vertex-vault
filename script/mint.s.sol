@@ -19,7 +19,7 @@ contract mint is Script {
     function run() external {
         uint256 pk = vm.envUint('PK');
         vm.startBroadcast(pk);
-        uint256 amount = 50e6;
+        uint256 amount = 30e6;
 
         usdc.approve(address(vault), amount);
         vault.mint(amount);

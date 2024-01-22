@@ -135,16 +135,15 @@ contract RangeProtocolVertexVault is
         returns (uint256 shares)
     {
         if (amount == 0) {
-            revert VaultErrors.ZeroMintAmount();
+            revert VaultErrors.ZeroDepositAmount();
         }
         uint256 totalSupply = totalSupply();
         shares = totalSupply != 0
             ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance())
             : amount;
-        _mint(msg.sender, shares);
 
+        _mint(msg.sender, shares);
         depositToken.safeTransferFrom(msg.sender, address(this), amount);
-        endpoint.depositCollateral(bytes12(0x0), 0, uint128(amount));
         emit Minted(msg.sender, shares, amount);
     }
 
@@ -255,11 +254,16 @@ contract RangeProtocolVertexVault is
             ) {
                 revert VaultErrors.InvalidMulticallTarget();
             }
+
             if (
                 targets[i] == address(depositToken)
-                    && bytes4(data[i][:10]) != depositToken.approve.selector
+                    && (
+                        bytes4(data[i][:4]) != depositToken.approve.selector
+                            || address(uint160(uint256(bytes32(data[i][4:36]))))
+                                != address(endpoint)
+                    )
             ) {
-                revert VaultErrors.OnlyApproveCallIsAllowedOnDepositToken();
+                revert VaultErrors.InvalidApproveCall();
             }
             targets[i].functionCall(data[i]);
         }
@@ -322,7 +326,52 @@ contract RangeProtocolVertexVault is
             passiveBalance -= managerBalance;
         }
 
-        return _toXTokenDecimals(uint256(signedBalance)) + passiveBalance;
+        int256 pendingBalance = getPendingBalance();
+        return pendingBalance > 0
+            ? _toXTokenDecimals(uint256(signedBalance)) + passiveBalance
+                + uint256(pendingBalance)
+            : _toXTokenDecimals(uint256(signedBalance)) + passiveBalance
+                - uint256(pendingBalance);
+    }
+
+    /**
+     * @notice getting pending balance from vertex.
+     * It checks all the queued transaction and fetched the deposit or withdrawal transactions
+     * send by the vault and calculate pending balance from it.
+     * @return pendingBalance the pending balance amount.
+     */
+    function getPendingBalance() public view returns (int256 pendingBalance) {
+        IEndpoint.SlowModeConfig memory config = endpoint.slowModeConfig();
+        for (uint64 i = config.txUpTo; i < config.txCount; i++) {
+            (, address sender, bytes memory transaction) =
+                endpoint.slowModeTxs(i);
+            if (sender != address(this)) continue;
+
+            (uint8 txType, bytes memory payload) = this.decodeTx(transaction);
+            if (txType == uint8(IEndpoint.TransactionType.DepositCollateral)) {
+                IEndpoint.DepositCollateral memory depositPayload =
+                    abi.decode(payload, (IEndpoint.DepositCollateral));
+                if (depositPayload.productId == 0) {
+                    pendingBalance += int256(uint256(depositPayload.amount));
+                }
+            } else if (
+                txType == uint8(IEndpoint.TransactionType.WithdrawCollateral)
+            ) {
+                IEndpoint.WithdrawCollateral memory withdrawPayload =
+                    abi.decode(payload, (IEndpoint.WithdrawCollateral));
+                if (withdrawPayload.productId == 0) {
+                    pendingBalance -= int256(uint256(withdrawPayload.amount));
+                }
+            }
+        }
+    }
+
+    function decodeTx(bytes calldata transaction)
+        public
+        pure
+        returns (uint8, bytes memory)
+    {
+        return (uint8(transaction[0]), transaction[1:]);
     }
 
     /**
@@ -331,7 +380,7 @@ contract RangeProtocolVertexVault is
      * @return amount the amount of underlying balance redeemable against the provided
      * amount of shares.
      */
-    function getUnderlyingBalanceByShare(uint256 shares)
+    function getUnderlyingBalanceByShares(uint256 shares)
         external
         view
         override
@@ -375,6 +424,7 @@ contract RangeProtocolVertexVault is
 
     /**
      * @notice add managing fee to the manager collectable balance.
+     * @param amount the amount of apply managing fee upon.
      */
     function _applyManagingFee(uint256 amount) private {
         managerBalance += (amount * managingFee) / 10_000;
