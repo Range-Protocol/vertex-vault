@@ -315,11 +315,6 @@ contract RangeProtocolVertexVault is
             );
         }
 
-        // signed balance should not be less than zero.
-        if (signedBalance < 0) {
-            revert VaultErrors.VaultIsUnderWater();
-        }
-
         // We optimistically assume that managerBalance will always be part of passive balance
         // but in the event, it is not there, we add this check to avoid the underflow.
         uint256 passiveBalance = depositToken.balanceOf(address(this));
@@ -327,21 +322,22 @@ contract RangeProtocolVertexVault is
             passiveBalance -= managerBalance;
         }
 
-        int256 pendingBalance = getPendingBalance();
-        return pendingBalance > 0
-            ? _toXTokenDecimals(uint256(signedBalance)) + passiveBalance
-                + uint256(pendingBalance)
-            : _toXTokenDecimals(uint256(signedBalance)) + passiveBalance
-                - uint256(pendingBalance);
+        return _toXTokenDecimals(uint256(signedBalance)) + passiveBalance
+            + getPendingBalance();
     }
 
     /**
      * @notice getting pending balance from vertex.
-     * It checks all the queued transaction and fetched the deposit or withdrawal transactions
-     * send by the vault and calculate pending balance from it.
+     * It checks all the queued transaction and fetched the deposit transactions
+     * sent by the vault and calculate pending balance from it.
      * @return pendingBalance the pending balance amount.
      */
-    function getPendingBalance() public view returns (int256 pendingBalance) {
+    function getPendingBalance()
+        public
+        view
+        override
+        returns (uint256 pendingBalance)
+    {
         IEndpoint.SlowModeConfig memory config = endpoint.slowModeConfig();
         for (uint64 i = config.txUpTo; i < config.txCount; i++) {
             (, address sender, bytes memory transaction) =
@@ -353,15 +349,7 @@ contract RangeProtocolVertexVault is
                 IEndpoint.DepositCollateral memory depositPayload =
                     abi.decode(payload, (IEndpoint.DepositCollateral));
                 if (depositPayload.productId == 0) {
-                    pendingBalance += int256(uint256(depositPayload.amount));
-                }
-            } else if (
-                txType == uint8(IEndpoint.TransactionType.WithdrawCollateral)
-            ) {
-                IEndpoint.WithdrawCollateral memory withdrawPayload =
-                    abi.decode(payload, (IEndpoint.WithdrawCollateral));
-                if (withdrawPayload.productId == 0) {
-                    pendingBalance -= int256(uint256(withdrawPayload.amount));
+                    pendingBalance += uint256(depositPayload.amount);
                 }
             }
         }
