@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.20;
 
 import { Initializable } from
@@ -150,6 +150,7 @@ contract RangeProtocolVertexVault is
     /**
      * @notice allows burning of vault {shares} to redeem the underlying the {depositTokenBalance}.
      * @param shares the amount of shares to be burned by the user.
+     * @param minAmount minimum amount to get from the user.
      * @return amount the amount of underlying {depositToken} to be redeemed by the user.
      */
     function burn(
