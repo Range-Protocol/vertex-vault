@@ -74,6 +74,21 @@ contract RangeProtocolVertexVault is
     }
 
     /**
+     * @dev Returns the name of the token.
+     */
+    function name() public pure override returns (string memory) {
+        return 'Vertex Liquidity Vault';
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() public pure override returns (string memory) {
+        return 'R-VER';
+    }
+
+    /**
      * @notice initializes the vault.
      * @param _spotEngine address of {spotEngine} contract of Vertex Protocol.
      * @param _perpEngine address of {perpEngine} contract of Vertex Protocol.
@@ -249,13 +264,6 @@ contract RangeProtocolVertexVault is
             revert VaultErrors.InvalidLength();
         }
         for (uint256 i = 0; i < targets.length; i++) {
-            if (
-                targets[i] != address(endpoint)
-                    && targets[i] != address(depositToken)
-            ) {
-                revert VaultErrors.InvalidMulticallTarget();
-            }
-
             if (
                 targets[i] == address(depositToken)
                     && (
