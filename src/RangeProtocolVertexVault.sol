@@ -138,6 +138,21 @@ contract RangeProtocolVertexVault is
     }
 
     /**
+     * @notice allows pausing of minting and burning features of the contract in the event
+     * any security risk is seen in the vault.
+     */
+    function pause() external onlyManager {
+        _pause();
+    }
+
+    /**
+     * @notice allows unpausing of minting and burning features of the contract if they paused.
+     */
+    function unpause() external onlyManager {
+        _unpause();
+    }
+
+    /**
      * @notice mints vault shares by depositing the {depositToken} amount.
      * @param amount the amount of {depositToken} to deposit.
      * @return shares the amount of vault shares minted.
@@ -157,6 +172,7 @@ contract RangeProtocolVertexVault is
             ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance())
             : amount;
 
+        if (shares == 0) revert VaultErrors.InvalidSharesAmount();
         _mint(msg.sender, shares);
         depositToken.safeTransferFrom(msg.sender, address(this), amount);
         emit Minted(msg.sender, shares, amount);
@@ -346,13 +362,12 @@ contract RangeProtocolVertexVault is
         override
         returns (uint256 pendingBalance)
     {
-        IEndpoint.SlowModeConfig memory config = endpoint.slowModeConfig();
-        for (uint64 i = config.txUpTo; i < config.txCount; i++) {
-            (, address sender, bytes memory transaction) =
-                endpoint.slowModeTxs(i);
-            if (sender != address(this)) continue;
+        (, uint64 txUpTo, uint64 txCount) = endpoint.getSlowModeTx(0);
+        for (uint64 i = txUpTo; i < txCount; i++) {
+            (IEndpoint.SlowModeTx memory slowMode,,) = endpoint.getSlowModeTx(i);
+            if (slowMode.sender != address(this)) continue;
 
-            (uint8 txType, bytes memory payload) = this.decodeTx(transaction);
+            (uint8 txType, bytes memory payload) = this.decodeTx(slowMode.tx);
             if (txType == uint8(IEndpoint.TransactionType.DepositCollateral)) {
                 IEndpoint.DepositCollateral memory depositPayload =
                     abi.decode(payload, (IEndpoint.DepositCollateral));

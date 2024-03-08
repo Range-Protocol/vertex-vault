@@ -16,4 +16,5 @@ library VaultErrors {
     error InvalidShareAmount();
     error VaultIsUnderWater();
     error AmountIsLessThanMinAmount();
+    error InvalidSharesAmount();
 }

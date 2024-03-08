@@ -53,7 +53,10 @@ interface IEndpoint {
         uint64 txUpTo;
     }
 
-    function slowModeConfig() external view returns (SlowModeConfig memory);
+    function getSlowModeTx(uint64)
+        external
+        view
+        returns (SlowModeTx memory, uint64, uint64);
 
     function slowModeTxs(uint64 idx)
         external
