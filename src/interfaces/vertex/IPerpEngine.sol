@@ -23,11 +23,5 @@ interface IPerpEngine {
     //    function getConfig(uint32 productId) external view returns (Config
     // memory);
 
-    function getPositionPnl(
-        uint32 productId,
-        bytes32 subaccount
-    )
-        external
-        view
-        returns (int128);
+    function getPositionPnl(uint32 productId, bytes32 subaccount) external view returns (int128);
 }

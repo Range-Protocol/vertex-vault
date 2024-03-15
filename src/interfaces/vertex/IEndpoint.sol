@@ -53,22 +53,11 @@ interface IEndpoint {
         uint64 txUpTo;
     }
 
-    function getSlowModeTx(uint64)
-        external
-        view
-        returns (SlowModeTx memory, uint64, uint64);
+    function getSlowModeTx(uint64) external view returns (SlowModeTx memory, uint64, uint64);
 
-    function slowModeTxs(uint64 idx)
-        external
-        view
-        returns (uint64, address, bytes calldata);
+    function slowModeTxs(uint64 idx) external view returns (uint64, address, bytes calldata);
 
-    function depositCollateral(
-        bytes12 subaccountName,
-        uint32 productId,
-        uint128 amount
-    )
-        external;
+    function depositCollateral(bytes12 subaccountName, uint32 productId, uint128 amount) external;
 
     function submitSlowModeTransaction(bytes calldata transaction) external;
 }

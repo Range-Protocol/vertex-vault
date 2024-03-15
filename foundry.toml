@@ -4,13 +4,14 @@ out = "out"
 libs = ["lib"]
 
 [rpc_endpoints]
-arbitrum = "https://arbitrum.llamarpc.com"
+arbitrum = "https://1rpc.io/arb"
 
 [fmt]
 int_types = "long"
-line_length = 80
+line_length = 120
 bracket_spacing = true
 multiline_func_header = "all"
 number_underscore = "thousands"
 quote_style = "single"
+single_line_statement_blocks = "single"
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

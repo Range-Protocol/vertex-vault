@@ -22,9 +22,7 @@ import '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 contract OwnableUpgradeable is Initializable, ContextUpgradeable {
     address private _manager;
 
-    event OwnershipTransferred(
-        address indexed previousManager, address indexed newManager
-    );
+    event OwnershipTransferred(address indexed previousManager, address indexed newManager);
 
     /**
      * @dev Initializes the contract setting the deployer as the initial
@@ -77,9 +75,7 @@ contract OwnableUpgradeable is Initializable, ContextUpgradeable {
      * Can only be called by the current manager.
      */
     function transferOwnership(address newManager) public virtual onlyManager {
-        require(
-            newManager != address(0), 'Ownable: new manager is the zero address'
-        );
+        require(newManager != address(0), 'Ownable: new manager is the zero address');
         _transferOwnership(newManager);
     }
 

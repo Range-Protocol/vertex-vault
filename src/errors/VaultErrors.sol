@@ -11,10 +11,21 @@ library VaultErrors {
     error ZeroAmountRedeemed();
     error InvalidManagingFee();
     error InvalidLength();
-    error InvalidMulticallTarget();
     error InvalidApproveCall();
     error InvalidShareAmount();
     error VaultIsUnderWater();
     error AmountIsLessThanMinAmount();
     error InvalidSharesAmount();
+    error MintNotAllowed();
+    error BurnNotAllowed();
+    error OnlyUpgraderAllowed();
+    error SwapIntervalNotSatisfied();
+    error TargetIsWhitelisted();
+    error TargetIsNotWhitelisted();
+    error SwapRouterIsWhitelisted();
+    error SwapRouterIsNotWhitelisted();
+    error SwapThresholdExceeded();
+    error IncorrectSwap();
+    error OutdatedPrice();
+    error CallNotAllowed();
 }

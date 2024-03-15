@@ -7,11 +7,5 @@ interface ISpotEngine {
         int128 lastCumulativeMultiplierX18;
     }
 
-    function getBalance(
-        uint32 productId,
-        bytes32 subaccount
-    )
-        external
-        view
-        returns (Balance memory);
+    function getBalance(uint32 productId, bytes32 subaccount) external view returns (Balance memory);
 }
