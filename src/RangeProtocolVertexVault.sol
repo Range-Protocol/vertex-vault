@@ -278,21 +278,42 @@ contract RangeProtocolVertexVault is
         uint256 wETHBalanceAfter = wETH.balanceOf(address(this));
         uint256 wBTCBalanceAfter = wBTC.balanceOf(address(this));
 
+        //        console2.log('Before');
+        //        console2.log('underlying: ', underlyingBalanceBefore);
+        //        console2.log('usdc: ', usdcBalanceBefore);
+        //        console2.log('wETH: ', wETHBalanceBefore);
+        //        console2.log('wBTC: ', wBTCBalanceBefore);
+        //
+        //        console2.log('After');
+        //        console2.log('underlying: ', underlyingBalanceAfter);
+        //        console2.log('usdc: ', usdcBalanceAfter);
+        //        console2.log('wETH: ', wETHBalanceAfter);
+        //        console2.log('wBTC: ', wBTCBalanceAfter);
         // revert the transaction if the ratio between underlying balance of the vault before and after the swap falls
         // below a the specified swap threshold.
+
         if ((underlyingBalanceAfter * 10_000 / underlyingBalanceBefore) < swapThreshold) {
             revert VaultErrors.SwapThresholdExceeded();
         }
 
         // if none of the assets value increase then it would mean that the swapped out token is incorrect.
-        if (
-            usdcBalanceAfter <= usdcBalanceBefore && wETHBalanceAfter <= wETHBalanceBefore
-                && wBTCBalanceAfter <= wBTCBalanceBefore
-        ) revert VaultErrors.IncorrectSwap();
-
+        IERC20 tokenOut;
+        uint256 amountOut;
+        if (usdcBalanceAfter > usdcBalanceBefore) {
+            amountOut = usdcBalanceAfter - usdcBalanceBefore;
+            tokenOut = usdc;
+        } else if (wETHBalanceAfter > wETHBalanceBefore) {
+            amountOut = wETHBalanceAfter - wETHBalanceBefore;
+            tokenOut = wETH;
+        } else if (wBTCBalanceAfter > wBTCBalanceBefore) {
+            amountOut = wBTCBalanceAfter - wBTCBalanceBefore;
+            tokenOut = wBTC;
+        } else {
+            revert VaultErrors.IncorrectSwap();
+        }
         // record the timestamp of the swap.
         lastSwapTimestamp = block.timestamp;
-        emit Swapped(tokenIn, amountIn, block.timestamp);
+        emit Swapped(tokenIn, amountIn, tokenOut, amountOut, block.timestamp);
     }
 
     /**

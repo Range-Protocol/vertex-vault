@@ -13,7 +13,7 @@ interface IRangeProtocolVertexVault {
     event TargetRemovedFromWhitelist(address target);
     event SwapRouterAddedToWhitelist(address swapRouter);
     event SwapRouterRemovedFromWhitelist(address swapRouter);
-    event Swapped(IERC20 token, uint256 amountIn, uint256 timestamp);
+    event Swapped(IERC20 tokenIn, uint256 amountIn, IERC20 tokenOut, uint256 amountOut, uint256 timestamp);
     event SwapThresholdChanged(uint256 swapThreshold);
     event MinimumRebalaceIntervalChanged(uint256 minimumSwapInterval);
 
