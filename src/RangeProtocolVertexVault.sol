@@ -166,10 +166,7 @@ contract RangeProtocolVertexVault is
         swapRouters.push(nativeRouter);
         emit SwapRouterAddedToWhitelist(nativeRouter);
 
-        minimumSwapInterval = 1 minutes;
-
-        // swap threshold set 99.5%, which is that underlying vault balance should be atleast 99.5% and not experiecing
-        // more slippage than 0.5%.
+        minimumSwapInterval = 15 minutes;
         swapThreshold = 9995;
 
         // set the price oracles for the vault's assets.
