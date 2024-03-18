@@ -11,7 +11,7 @@ library VaultErrors {
     error ZeroAmountRedeemed();
     error InvalidManagingFee();
     error InvalidLength();
-    error InvalidApproveCall();
+    error InvalidMulticall();
     error InvalidShareAmount();
     error VaultIsUnderWater();
     error AmountIsLessThanMinAmount();

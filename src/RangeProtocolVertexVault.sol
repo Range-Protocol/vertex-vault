@@ -278,20 +278,8 @@ contract RangeProtocolVertexVault is
         uint256 wETHBalanceAfter = wETH.balanceOf(address(this));
         uint256 wBTCBalanceAfter = wBTC.balanceOf(address(this));
 
-        //        console2.log('Before');
-        //        console2.log('underlying: ', underlyingBalanceBefore);
-        //        console2.log('usdc: ', usdcBalanceBefore);
-        //        console2.log('wETH: ', wETHBalanceBefore);
-        //        console2.log('wBTC: ', wBTCBalanceBefore);
-        //
-        //        console2.log('After');
-        //        console2.log('underlying: ', underlyingBalanceAfter);
-        //        console2.log('usdc: ', usdcBalanceAfter);
-        //        console2.log('wETH: ', wETHBalanceAfter);
-        //        console2.log('wBTC: ', wBTCBalanceAfter);
         // revert the transaction if the ratio between underlying balance of the vault before and after the swap falls
         // below a the specified swap threshold.
-
         if ((underlyingBalanceAfter * 10_000 / underlyingBalanceBefore) < swapThreshold) {
             revert VaultErrors.SwapThresholdExceeded();
         }
@@ -336,7 +324,22 @@ contract RangeProtocolVertexVault is
                         bytes4(data[i][:4]) != usdc.approve.selector
                             || address(uint160(uint256(bytes32(data[i][4:36])))) != address(endpoint)
                     )
-            ) revert VaultErrors.InvalidApproveCall();
+            ) revert VaultErrors.InvalidMulticall();
+
+            // performs check that only the tx types of WithdrawCollateral and LinkSigner are allowed on the endpoint
+            // when calling the submitSlowModeTransaction on endpoint contract.
+            if (
+                targets[i] == address(endpoint)
+                    && (
+                        bytes4(data[i][:4]) == endpoint.submitSlowModeTransaction.selector
+                            && (
+                                IEndpoint.TransactionType(uint8(bytes1(data[i][68:69])))
+                                    != IEndpoint.TransactionType.WithdrawCollateral
+                                    && IEndpoint.TransactionType(uint8(bytes1(data[i][68:69])))
+                                        != IEndpoint.TransactionType.LinkSigner
+                            )
+                    )
+            ) revert VaultErrors.InvalidMulticall();
             targets[i].functionCall(data[i]);
         }
     }
