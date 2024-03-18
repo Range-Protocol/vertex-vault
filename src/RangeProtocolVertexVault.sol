@@ -592,7 +592,7 @@ contract RangeProtocolVertexVault is
 
         // We optimistically assume that managerBalance will always be part of passive balance
         // but in the event, it is not there, we add this check to avoid the underflow.
-        if (passiveBalance > managerBalance) passiveBalance -= managerBalance;
+        if (passiveBalance >= managerBalance) passiveBalance -= managerBalance;
 
         return _toXTokenDecimals(uint256(signedBalance)) + passiveBalance + getPendingBalance();
     }
