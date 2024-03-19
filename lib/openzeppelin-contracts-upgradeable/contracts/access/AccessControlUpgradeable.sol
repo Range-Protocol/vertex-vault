@@ -52,7 +52,7 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
         mapping(address account => bool) hasRole;
         bytes32 adminRole;
     }
-
+    
     bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
 
 
