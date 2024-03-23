@@ -29,4 +29,5 @@ abstract contract RangeProtocolVertexVaultStorage is IRangeProtocolVertexVault {
     address[] public targets;
     mapping(address => bool) public whitelistedSwapRouters;
     address[] public swapRouters;
+    // Note: do not change the layout of the above state variable and only add new state variable below.
 }
