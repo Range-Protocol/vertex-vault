@@ -16,10 +16,7 @@ library VaultErrors {
     error VaultIsUnderWater();
     error AmountIsLessThanMinAmount();
     error InvalidSharesAmount();
-    error MintNotAllowed();
-    error BurnNotAllowed();
     error OnlyUpgraderAllowed();
-    error SwapIntervalNotSatisfied();
     error TargetIsWhitelisted();
     error TargetIsNotWhitelisted();
     error SwapRouterIsWhitelisted();

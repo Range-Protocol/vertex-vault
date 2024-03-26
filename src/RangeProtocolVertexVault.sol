@@ -165,14 +165,17 @@ contract RangeProtocolVertexVault is
         whitelistedSwapRouters[nativeRouter] = true;
         swapRouters.push(nativeRouter);
         emit SwapRouterAddedToWhitelist(nativeRouter);
-
-        minimumSwapInterval = 15 minutes;
         swapThreshold = 9995;
 
         // set the price oracles for the vault's assets.
-        tokenToPriceOracle[usdc] = AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3);
-        tokenToPriceOracle[wETH] = AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612);
-        tokenToPriceOracle[wBTC] = AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57);
+        // 86400 is the seconds for heartbeats for the individual price feeds, 1800 seconds is the 30 minutes buffer
+        // added on the top of heartbeat
+        priceFeedData[usdc] =
+            PriceFeedData(AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3), 86_400 + 1800);
+        priceFeedData[wETH] =
+            PriceFeedData(AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800);
+        priceFeedData[wBTC] =
+            PriceFeedData(AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57), 86_400 + 1800);
     }
 
     /**
@@ -195,7 +198,6 @@ contract RangeProtocolVertexVault is
         returns (uint256 shares)
     {
         if (amount == 0) revert VaultErrors.ZeroDepositAmount();
-        if (getPendingBalance() != 0) revert VaultErrors.MintNotAllowed();
         uint256 totalSupply = totalSupply();
         shares = totalSupply != 0 ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance()) : amount;
 
@@ -227,8 +229,6 @@ contract RangeProtocolVertexVault is
         returns (uint256 amount)
     {
         if (shares == 0) revert VaultErrors.ZeroBurnAmount();
-        if (getPendingBalance() != 0) revert VaultErrors.BurnNotAllowed();
-
         if ((amount = FullMath.mulDiv(shares, getUnderlyingBalance(), totalSupply())) == 0) {
             revert VaultErrors.ZeroAmountRedeemed();
         }
@@ -257,9 +257,6 @@ contract RangeProtocolVertexVault is
     function swap(address target, bytes calldata swapData, IERC20 tokenIn, uint256 amountIn) external onlyManager {
         // the swap router must be whitelisted.
         if (!whitelistedSwapRouters[target]) revert VaultErrors.SwapRouterIsNotWhitelisted();
-
-        // do not allow swapping within a time interval
-        if (block.timestamp - lastSwapTimestamp < minimumSwapInterval) revert VaultErrors.SwapIntervalNotSatisfied();
 
         // cache the balances of the vault before swap.
         uint256 underlyingBalanceBefore = getUnderlyingBalance();
@@ -299,8 +296,6 @@ contract RangeProtocolVertexVault is
         } else {
             revert VaultErrors.IncorrectSwap();
         }
-        // record the timestamp of the swap.
-        lastSwapTimestamp = block.timestamp;
         emit Swapped(tokenIn, amountIn, tokenOut, amountOut, block.timestamp);
     }
 
@@ -428,7 +423,7 @@ contract RangeProtocolVertexVault is
      * - the new upgrader cannot be a zero address.
      * - only current upgrader can call this function.
      */
-    function changeUpgrader(address newUpgrader) external onlyUpgrader {
+    function changeUpgrader(address newUpgrader) external override onlyUpgrader {
         if (newUpgrader == address(0x0)) revert VaultErrors.ZeroAddress();
         upgrader = newUpgrader;
     }
@@ -440,7 +435,7 @@ contract RangeProtocolVertexVault is
      * - only upgrader can call this function
      * - the swap router must not be already whitelisted.
      */
-    function whiteListSwapRouter(address swapRouter) external onlyUpgrader {
+    function whiteListSwapRouter(address swapRouter) external override onlyUpgrader {
         if (whitelistedSwapRouters[swapRouter]) revert VaultErrors.SwapRouterIsWhitelisted();
 
         whitelistedSwapRouters[swapRouter] = true;
@@ -456,7 +451,7 @@ contract RangeProtocolVertexVault is
      * - only upgrader can call this function.
      * - the swap must be whitelisted.
      */
-    function removeSwapRouterFromWhitelist(address swapRouter) external onlyUpgrader {
+    function removeSwapRouterFromWhitelist(address swapRouter) external override onlyUpgrader {
         if (!whitelistedSwapRouters[swapRouter]) revert VaultErrors.SwapRouterIsNotWhitelisted();
 
         whitelistedSwapRouters[swapRouter] = false;
@@ -480,7 +475,7 @@ contract RangeProtocolVertexVault is
      * - only upgrader can call this function.
      * - the target address must not be already whitelisted.
      */
-    function whiteListTarget(address target) external onlyUpgrader {
+    function whiteListTarget(address target) external override onlyUpgrader {
         if (whitelistedTargets[target]) revert VaultErrors.TargetIsWhitelisted();
 
         whitelistedTargets[target] = true;
@@ -496,7 +491,7 @@ contract RangeProtocolVertexVault is
      * - only upgrader can call this function.
      * - the target address must be already whitelisted.
      */
-    function removeTargetFromWhitelist(address target) external onlyUpgrader {
+    function removeTargetFromWhitelist(address target) external override onlyUpgrader {
         if (!whitelistedTargets[target]) revert VaultErrors.TargetIsNotWhitelisted();
 
         whitelistedTargets[target] = false;
@@ -519,22 +514,11 @@ contract RangeProtocolVertexVault is
      * requirements
      * - only upgrader can call this function.
      */
-    function changeSwapThreshold(uint256 newSwapThreshold) external onlyUpgrader {
+    function changeSwapThreshold(uint256 newSwapThreshold) external override onlyUpgrader {
         // @note we are not adding a limit check on swap threshold optimistically assuming that the upgrader will
         // set a reasonable limit on the swap threshold.
         swapThreshold = newSwapThreshold;
         emit SwapThresholdChanged(newSwapThreshold);
-    }
-
-    /**
-     * @dev changeMinimumSwapInterval allows changing the the minimum swap interval. The minimum swap interval is the
-     * time duration manager must wait to perform the subsequent swaps on the vault.
-     */
-    function changeMinimumSwapInterval(uint256 newMinimumSwapInterval) external onlyUpgrader {
-        // @note we are not adding a limit check on minimum swap interval optimistically assuming that the upgrader will
-        // set a reasonable limit on the minimum swap interval.
-        minimumSwapInterval = newMinimumSwapInterval;
-        emit MinimumRebalaceIntervalChanged(newMinimumSwapInterval);
     }
 
     /**
@@ -583,12 +567,13 @@ contract RangeProtocolVertexVault is
 
         uint256 usdcPrice = uint256(getPriceFromOracle(usdc));
         uint256 usdcDecimalsMultiplier = 10 ** IERC20Metadata(address(usdc)).decimals();
+        uint256 usdcPriceFeedDecimalsMultiplier = 10 ** priceFeedData[usdc].priceFeed.decimals();
 
         // @notice calculate passive balance as usdc balance in the vault + wETH balance in the vault (converted to usdc)
         // + wBTC balance in the vault (converted to usdc).
         uint256 passiveBalance = usdc.balanceOf(address(this))
-            + getAssetAmountInUsdc(wETH, usdcPrice, usdcDecimalsMultiplier)
-            + getAssetAmountInUsdc(wBTC, usdcPrice, usdcDecimalsMultiplier);
+            + getAssetAmountInUsdc(wETH, usdcPrice, usdcDecimalsMultiplier, usdcPriceFeedDecimalsMultiplier)
+            + getAssetAmountInUsdc(wBTC, usdcPrice, usdcDecimalsMultiplier, usdcPriceFeedDecimalsMultiplier);
 
         // We optimistically assume that managerBalance will always be part of passive balance
         // but in the event, it is not there, we add this check to avoid the underflow.
@@ -607,14 +592,15 @@ contract RangeProtocolVertexVault is
     function getAssetAmountInUsdc(
         IERC20 asset,
         uint256 usdcPrice,
-        uint256 usdcDecimalsMultiplier
+        uint256 usdcDecimalsMultiplier,
+        uint256 usdcPriceFeedDecimalsMultiplier
     )
         public
         view
         returns (uint256)
     {
         return asset.balanceOf(address(this)) * uint256(getPriceFromOracle(asset)) * usdcDecimalsMultiplier
-            * 10 ** tokenToPriceOracle[usdc].decimals() / 10 ** tokenToPriceOracle[asset].decimals()
+            * usdcPriceFeedDecimalsMultiplier / 10 ** priceFeedData[asset].priceFeed.decimals()
             / 10 ** IERC20Metadata(address(asset)).decimals() / usdcPrice;
     }
 
@@ -625,10 +611,8 @@ contract RangeProtocolVertexVault is
      * - price must not be older than two days
      */
     function getPriceFromOracle(IERC20 token) public view returns (int256) {
-        (, int256 price,, uint256 updatedAt,) = tokenToPriceOracle[token].latestRoundData();
-
-        // TODO 172800 seconds in two days
-        if (block.timestamp - updatedAt > 172_800) revert VaultErrors.OutdatedPrice();
+        (, int256 price,, uint256 updatedAt,) = priceFeedData[token].priceFeed.latestRoundData();
+        if (block.timestamp - updatedAt > priceFeedData[token].heartbeat) revert VaultErrors.OutdatedPrice();
         return price;
     }
 

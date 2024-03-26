@@ -9,6 +9,11 @@ import { IPerpEngine } from './interfaces/vertex/IPerpEngine.sol';
 import { ISpotEngine } from './interfaces/vertex/ISpotEngine.sol';
 
 abstract contract RangeProtocolVertexVaultStorage is IRangeProtocolVertexVault {
+    struct PriceFeedData {
+        AggregatorV3Interface priceFeed;
+        uint256 heartbeat;
+    }
+
     bytes32 public contractSubAccount;
     IERC20 public usdc;
     uint256[] public productIds;
@@ -20,11 +25,9 @@ abstract contract RangeProtocolVertexVaultStorage is IRangeProtocolVertexVault {
     uint256 public managerBalance;
     IERC20 public wETH;
     IERC20 public wBTC;
-    mapping(IERC20 => AggregatorV3Interface) public tokenToPriceOracle;
+    mapping(IERC20 asset => PriceFeedData) public priceFeedData;
     address public upgrader;
     uint256 public swapThreshold;
-    uint256 public minimumSwapInterval;
-    uint256 public lastSwapTimestamp;
     mapping(address => bool) public whitelistedTargets;
     address[] public targets;
     mapping(address => bool) public whitelistedSwapRouters;

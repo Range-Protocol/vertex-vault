@@ -15,13 +15,18 @@ interface IRangeProtocolVertexVault {
     event SwapRouterRemovedFromWhitelist(address swapRouter);
     event Swapped(IERC20 tokenIn, uint256 amountIn, IERC20 tokenOut, uint256 amountOut, uint256 timestamp);
     event SwapThresholdChanged(uint256 swapThreshold);
-    event MinimumRebalaceIntervalChanged(uint256 minimumSwapInterval);
 
-    function changeUpgrader(address newUpgrader) external;
     function mint(uint256 amount, uint256 minShares) external returns (uint256 shares);
     function burn(uint256 shares, uint256 minAmount) external returns (uint256 amount);
+    function swap(address target, bytes calldata swapData, IERC20 tokenIn, uint256 amountIn) external;
     function addProduct(uint256 productId) external;
     function removeProduct(uint256 productId) external;
+    function changeUpgrader(address newUpgrader) external;
+    function whiteListSwapRouter(address swapRouter) external;
+    function removeSwapRouterFromWhitelist(address swapRouter) external;
+    function whiteListTarget(address target) external;
+    function removeTargetFromWhitelist(address target) external;
+    function changeSwapThreshold(uint256 newSwapThreshold) external;
     function multicallByManager(address[] calldata targets, bytes[] calldata data) external;
     function setManagingFee(uint256 _managingFee) external;
     function collectManagerFee() external;
