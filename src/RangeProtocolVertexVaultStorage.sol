@@ -23,14 +23,14 @@ abstract contract RangeProtocolVertexVaultStorage is IRangeProtocolVertexVault {
     ISpotEngine public spotEngine;
     uint256 public managingFee;
     uint256 public managerBalance;
-    IERC20 public wETH;
-    IERC20 public wBTC;
-    mapping(IERC20 asset => PriceFeedData) public priceFeedData;
     address public upgrader;
-    uint256 public swapThreshold;
     mapping(address => bool) public whitelistedTargets;
     address[] public targets;
     mapping(address => bool) public whitelistedSwapRouters;
     address[] public swapRouters;
+    uint256 public swapThreshold;
+    mapping(IERC20 asset => PriceFeedData) public priceFeedData;
+    IERC20 public wETH;
+    IERC20 public wBTC;
     // Note: do not change the layout of the above state variable and only add new state variable below.
 }

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.20;
 
-import { Test, console2 } from 'forge-std/Test.sol';
-
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import { UUPSUpgradeable } from '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
 import { ERC20Upgradeable } from '@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol';
@@ -454,7 +452,6 @@ contract RangeProtocolVertexVault is
     function removeSwapRouterFromWhitelist(address swapRouter) external override onlyUpgrader {
         if (!whitelistedSwapRouters[swapRouter]) revert VaultErrors.SwapRouterIsNotWhitelisted();
 
-        whitelistedSwapRouters[swapRouter] = false;
         uint256 length = swapRouters.length;
         for (uint256 i = 0; i < length; i++) {
             if (swapRouters[i] == swapRouter) {
@@ -494,7 +491,6 @@ contract RangeProtocolVertexVault is
     function removeTargetFromWhitelist(address target) external override onlyUpgrader {
         if (!whitelistedTargets[target]) revert VaultErrors.TargetIsNotWhitelisted();
 
-        whitelistedTargets[target] = false;
         uint256 length = targets.length;
         for (uint256 i = 0; i < length; i++) {
             if (targets[i] == target) {

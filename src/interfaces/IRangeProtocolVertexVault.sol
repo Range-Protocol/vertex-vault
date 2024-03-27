@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import { IERC20 } from '@openzeppelin/contracts/interfaces/IERC20.sol';
 
-interface IRangeProtocolVertexVault {
+interface IRangeProtocolVertexVault is IERC20 {
     event Minted(address user, uint256 shares, uint256 amount);
     event Burned(address user, uint256 shares, uint256 amount);
     event ProductAdded(uint256 product);
@@ -24,9 +24,9 @@ interface IRangeProtocolVertexVault {
     function changeUpgrader(address newUpgrader) external;
     function whiteListSwapRouter(address swapRouter) external;
     function removeSwapRouterFromWhitelist(address swapRouter) external;
+    function changeSwapThreshold(uint256 newSwapThreshold) external;
     function whiteListTarget(address target) external;
     function removeTargetFromWhitelist(address target) external;
-    function changeSwapThreshold(uint256 newSwapThreshold) external;
     function multicallByManager(address[] calldata targets, bytes[] calldata data) external;
     function setManagingFee(uint256 _managingFee) external;
     function collectManagerFee() external;
