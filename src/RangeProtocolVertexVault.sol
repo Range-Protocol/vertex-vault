@@ -61,6 +61,7 @@ contract RangeProtocolVertexVault is
 
     uint256 public constant MAX_MANAGING_FEE = 1000;
     uint256 public constant X18_MULTIPLIER = 10 ** 18;
+    uint256 public constant DECIMALS_DIFFERENCE_MULTIPLIER = 10 ** 12;
 
     modifier onlyUpgrader() {
         if (msg.sender != upgrader) revert VaultErrors.OnlyUpgraderAllowed();
@@ -69,21 +70,6 @@ contract RangeProtocolVertexVault is
 
     constructor() {
         _disableInitializers();
-    }
-
-    /**
-     * @dev Returns the name of the token.
-     */
-    function name() public pure override returns (string memory) {
-        return 'Vertex Liquidity Vault';
-    }
-
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
-    function symbol() public pure override returns (string memory) {
-        return 'R-VER';
     }
 
     /**
@@ -130,17 +116,6 @@ contract RangeProtocolVertexVault is
         contractSubAccount = bytes32(uint256(uint160(address(this))) << 96);
         _setManagingFee(100); // set 1% as managing fee
         upgrader = _upgrader;
-
-        addProduct(4); // add ETH perp product
-    }
-
-    /**
-     * @dev only will be called once to set the new state of the vault according to the new implementation
-     */
-    function reinit() external onlyManager {
-        require(upgrader == address(0x0)); // check ensure manager can call it only once.
-        // timelock address which can upgrade the vault.
-        upgrader = 0x75a45Bc069F345b424dc67fb37d7079e219AF206;
 
         // wETH and wBTC addresses that we expect to have as passive balance in the vault after swapping
         // vault's USDC to wETH and wBTC.
@@ -198,7 +173,8 @@ contract RangeProtocolVertexVault is
         if (amount == 0) revert VaultErrors.ZeroDepositAmount();
         uint256 totalSupply = totalSupply();
         shares = totalSupply != 0 ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance()) : amount;
-
+        // convert shares amounts to have 18 decimals since the getUnderlyingBalance() function returns amount in 6 decimals.
+        shares = shares * DECIMALS_DIFFERENCE_MULTIPLIER;
         if (shares < minShares) revert VaultErrors.InvalidSharesAmount();
         _mint(msg.sender, shares);
         usdc.safeTransferFrom(msg.sender, address(this), amount);
@@ -522,6 +498,8 @@ contract RangeProtocolVertexVault is
      * @param depositAmount the amount of usdc to deposit.
      */
     function getMintAmount(uint256 depositAmount) external view override returns (uint256) {
+        uint256 _totalSupply = totalSupply();
+        if (_totalSupply == 0) return depositAmount * DECIMALS_DIFFERENCE_MULTIPLIER;
         return FullMath.mulDivRoundingUp(depositAmount, totalSupply(), getUnderlyingBalance());
     }
 
