@@ -31,9 +31,10 @@ contract RangeProtocolVertexVaultTest is Test {
     IERC20 wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     IERC20 wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
 
-    RangeProtocolVertexVault vault;
-    address manager = 0xBBE307DB73D8fD981A7dAB929E2a41225CF0658A;
-    address swapRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
+    RangeProtocolVertexVault vault = RangeProtocolVertexVault(0xf125ffD97714154A75bac57CD0fb18986B27Cf47);
+    address manager = 0x3f132Af5eA90C71ed5DE495962426b8f1B47A511;
+    address upgrader = 0xBBE307DB73D8fD981A7dAB929E2a41225CF0658A;
+    //    address swapRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
 
     function setUp() external {
         uint256 fork = vm.createFork(vm.rpcUrl('arbitrum'));
@@ -42,24 +43,26 @@ contract RangeProtocolVertexVaultTest is Test {
         usdc.transfer(manager, 100_000 * 10 ** 6);
 
         address vaultImpl = address(new RangeProtocolVertexVault());
-        vault = RangeProtocolVertexVault(
-            address(
-                new ERC1967Proxy(
-                    vaultImpl,
-                    abi.encodeWithSignature(
-                        'initialize(address,address,address,address,address,string,string,address)',
-                        address(spotEngine),
-                        address(perpEngine),
-                        address(endpoint),
-                        address(usdc),
-                        manager,
-                        'Vertex Test Vault',
-                        'VTX',
-                        manager
-                    )
-                )
-            )
-        );
+        vm.prank(upgrader);
+        vault.upgradeToAndCall(vaultImpl, '');
+        //        vault = RangeProtocolVertexVault(
+        //            address(
+        //                new ERC1967Proxy(
+        //                    vaultImpl,
+        //                    abi.encodeWithSignature(
+        //                        'initialize(address,address,address,address,address,string,string,address)',
+        //                        address(spotEngine),
+        //                        address(perpEngine),
+        //                        address(endpoint),
+        //                        address(usdc),
+        //                        manager,
+        //                        'Vertex Test Vault',
+        //                        'VTX',
+        //                        manager
+        //                    )
+        //                )
+        //            )
+        //        );
         vm.startPrank(manager);
     }
 
@@ -80,12 +83,12 @@ contract RangeProtocolVertexVaultTest is Test {
     //        }
 
     function testUnderlyingBalance() external {
-        deal(address(wETH), manager, 100_000e18);
-        wETH.transfer(address(vault), 10e18);
-
-        deal(address(wBTC), manager, 100_000e8);
-        wBTC.transfer(address(vault), 10e8);
-        vault.getUnderlyingBalance();
+        //        deal(address(wETH), manager, 100_000e18);
+        //        wETH.transfer(address(vault), 10e18);
+        //
+        //        deal(address(wBTC), manager, 100_000e8);
+        //        wBTC.transfer(address(vault), 10e8);
+        console2.log(vault.getUnderlyingBalance());
     }
 
     function testChangeUpgraderByNonUpgrader() external {
@@ -96,22 +99,10 @@ contract RangeProtocolVertexVaultTest is Test {
     }
 
     function testChangeUpgraderAddress() external {
-        assertEq(vault.upgrader(), manager);
+        assertEq(vault.upgrader(), upgrader);
+        vm.startPrank(upgrader);
         vault.changeUpgrader(address(0x1));
         assertEq(vault.upgrader(), address(0x1));
-    }
-
-    function testWhitelistSwapRouterByNonUpgrader() external {
-        vm.expectRevert(VaultErrors.OnlyUpgraderAllowed.selector);
-        vm.stopPrank();
-        vm.prank(address(0x1));
-        vault.whiteListSwapRouter(address(0x123));
-    }
-
-    function testWhitelistSwapRouter() external {
-        assertEq(vault.whitelistedSwapRouters(address(0x123)), false);
-        vault.whiteListSwapRouter(address(0x123));
-        assertEq(vault.whitelistedSwapRouters(address(0x123)), true);
     }
 
     function testWhitelistTargetByNonUpgrader() external {
@@ -123,6 +114,7 @@ contract RangeProtocolVertexVaultTest is Test {
 
     function testWhitelistTarget() external {
         assertEq(vault.whitelistedTargets(address(0x123)), false);
+        vm.startPrank(upgrader);
         vault.whiteListTarget(address(0x123));
         assertEq(vault.whitelistedTargets(address(0x123)), true);
     }
@@ -136,24 +128,12 @@ contract RangeProtocolVertexVaultTest is Test {
 
     function testRemoveTargetFromWhitelist() external {
         assertEq(vault.whitelistedTargets(address(0x123)), false);
+        vm.startPrank(upgrader);
         vault.whiteListTarget(address(0x123));
         assertEq(vault.whitelistedTargets(address(0x123)), true);
 
         vault.removeTargetFromWhitelist(address(0x123));
         assertEq(vault.whitelistedTargets(address(0x123)), false);
-    }
-
-    function testChangeSwapThresholdByNonUpgrader() external {
-        vm.expectRevert(VaultErrors.OnlyUpgraderAllowed.selector);
-        vm.stopPrank();
-        vm.prank(address(0x1));
-        vault.changeSwapThreshold(9900);
-    }
-
-    function testChangeSwapThreshold() external {
-        assertEq(vault.swapThreshold(), 9995);
-        vault.changeSwapThreshold(9900);
-        assertEq(vault.swapThreshold(), 9900);
     }
 
     function testMintWithZeroAmount() external {
@@ -218,8 +198,9 @@ contract RangeProtocolVertexVaultTest is Test {
         usdc.approve(address(vault), amount);
         vault.mint(amount, 0);
         vault.pause();
-        //        vm.expectRevert(EnforcedPause.selector);
-        vault.burn(vault.balanceOf(manager), 0);
+        uint256 burnAmount = vault.balanceOf(manager);
+        vm.expectRevert(EnforcedPause.selector);
+        vault.burn(burnAmount, 0);
     }
 
     function testBurn() external {

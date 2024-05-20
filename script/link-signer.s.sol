@@ -36,7 +36,7 @@ contract linkSigner is Script {
         uint256 pk = vm.envUint('PK');
         vm.startBroadcast(pk);
 
-//        usdc.transfer(address(vault), 1e6);
+        //        usdc.transfer(address(vault), 1e6);
         address[] memory targets = new address[](2);
         bytes[] memory data = new bytes[](2);
 

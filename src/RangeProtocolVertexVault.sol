@@ -60,8 +60,10 @@ contract RangeProtocolVertexVault is
     using Address for address;
 
     uint256 public constant MAX_MANAGING_FEE = 1000;
-    uint256 public constant X18_MULTIPLIER = 10 ** 18;
+    int256 public constant X18_MULTIPLIER = 10 ** 18;
     uint256 public constant DECIMALS_DIFFERENCE_MULTIPLIER = 10 ** 12;
+    uint32 public constant ETH_SPOT_ID = 3;
+    uint32 public constant BTC_SPOT_ID = 1;
 
     modifier onlyUpgrader() {
         if (msg.sender != upgrader) revert VaultErrors.OnlyUpgraderAllowed();
@@ -133,13 +135,6 @@ contract RangeProtocolVertexVault is
         targets.push(address(endpoint));
         emit TargetAddedToWhitelist(address(endpoint));
 
-        // whitelisting native router, so this router could be called in swap function to perform swap between assets.
-        address nativeRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
-        whitelistedSwapRouters[nativeRouter] = true;
-        swapRouters.push(nativeRouter);
-        emit SwapRouterAddedToWhitelist(nativeRouter);
-        swapThreshold = 9995;
-
         // set the price oracles for the vault's assets.
         // 86400 is the seconds for heartbeats for the individual price feeds, 1800 seconds is the 30 minutes buffer
         // added on the top of heartbeat
@@ -172,9 +167,10 @@ contract RangeProtocolVertexVault is
     {
         if (amount == 0) revert VaultErrors.ZeroDepositAmount();
         uint256 totalSupply = totalSupply();
-        shares = totalSupply != 0 ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance()) : amount;
-        // convert shares amounts to have 18 decimals since the getUnderlyingBalance() function returns amount in 6 decimals.
-        shares = shares * DECIMALS_DIFFERENCE_MULTIPLIER;
+        shares = totalSupply != 0
+            ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance())
+            : amount * DECIMALS_DIFFERENCE_MULTIPLIER;
+
         if (shares < minShares) revert VaultErrors.InvalidSharesAmount();
         _mint(msg.sender, shares);
         usdc.safeTransferFrom(msg.sender, address(this), amount);
@@ -214,63 +210,6 @@ contract RangeProtocolVertexVault is
         if (usdc.balanceOf(address(this)) < amount) revert VaultErrors.NotEnoughBalanceInVault();
         usdc.safeTransfer(msg.sender, amount);
         emit Burned(msg.sender, shares, amount);
-    }
-
-    /**
-     * @dev swap function to swap the vault's assets. Calls the calldata on whitelisted swap router.
-     * @param target the whitelisted address of the swap router.
-     * @param swapData the calldata for the swap.
-     * @param tokenIn the address of the token to be swapped.
-     * @param amountIn the amount of the swapped token.
-     * requirements
-     * - only manager can call it.
-     * - the {target} address must be a whitelisted swap router.
-     * - the call to swap function must satisfy the minimum swap interval.
-     * - the ratio of underlying vault's balance before and after the swap must not fall below the swap threshold.
-     */
-    function swap(address target, bytes calldata swapData, IERC20 tokenIn, uint256 amountIn) external onlyManager {
-        // the swap router must be whitelisted.
-        if (!whitelistedSwapRouters[target]) revert VaultErrors.SwapRouterIsNotWhitelisted();
-
-        // cache the balances of the vault before swap.
-        uint256 underlyingBalanceBefore = getUnderlyingBalance();
-        uint256 usdcBalanceBefore = usdc.balanceOf(address(this));
-        uint256 wETHBalanceBefore = wETH.balanceOf(address(this));
-        uint256 wBTCBalanceBefore = wBTC.balanceOf(address(this));
-
-        // perform swap
-        tokenIn.forceApprove(target, amountIn);
-        Address.functionCall(target, swapData);
-        tokenIn.forceApprove(target, 0);
-
-        // get underlying balance of the vault after swap.
-        uint256 underlyingBalanceAfter = getUnderlyingBalance();
-        uint256 usdcBalanceAfter = usdc.balanceOf(address(this));
-        uint256 wETHBalanceAfter = wETH.balanceOf(address(this));
-        uint256 wBTCBalanceAfter = wBTC.balanceOf(address(this));
-
-        // revert the transaction if the ratio between underlying balance of the vault before and after the swap falls
-        // below a the specified swap threshold.
-        if ((underlyingBalanceAfter * 10_000 / underlyingBalanceBefore) < swapThreshold) {
-            revert VaultErrors.SwapThresholdExceeded();
-        }
-
-        // if none of the assets value increase then it would mean that the swapped out token is incorrect.
-        IERC20 tokenOut;
-        uint256 amountOut;
-        if (usdcBalanceAfter > usdcBalanceBefore) {
-            amountOut = usdcBalanceAfter - usdcBalanceBefore;
-            tokenOut = usdc;
-        } else if (wETHBalanceAfter > wETHBalanceBefore) {
-            amountOut = wETHBalanceAfter - wETHBalanceBefore;
-            tokenOut = wETH;
-        } else if (wBTCBalanceAfter > wBTCBalanceBefore) {
-            amountOut = wBTCBalanceAfter - wBTCBalanceBefore;
-            tokenOut = wBTC;
-        } else {
-            revert VaultErrors.IncorrectSwap();
-        }
-        emit Swapped(tokenIn, amountIn, tokenOut, amountOut, block.timestamp);
     }
 
     /**
@@ -403,44 +342,6 @@ contract RangeProtocolVertexVault is
     }
 
     /**
-     * @dev whiteListSwapRouter allows whitelisting a swap router address.
-     * @param swapRouter the address of the swap router.
-     * requirements
-     * - only upgrader can call this function
-     * - the swap router must not be already whitelisted.
-     */
-    function whiteListSwapRouter(address swapRouter) external override onlyUpgrader {
-        if (whitelistedSwapRouters[swapRouter]) revert VaultErrors.SwapRouterIsWhitelisted();
-
-        whitelistedSwapRouters[swapRouter] = true;
-        swapRouters.push(swapRouter);
-
-        emit SwapRouterAddedToWhitelist(swapRouter);
-    }
-
-    /**
-     * @dev removeSwapRouterFromWhitelist removes swap router from the whitelist of swap routers.
-     * @param swapRouter the address of the swapRouter to remove from whitelist.
-     * requirements
-     * - only upgrader can call this function.
-     * - the swap must be whitelisted.
-     */
-    function removeSwapRouterFromWhitelist(address swapRouter) external override onlyUpgrader {
-        if (!whitelistedSwapRouters[swapRouter]) revert VaultErrors.SwapRouterIsNotWhitelisted();
-
-        uint256 length = swapRouters.length;
-        for (uint256 i = 0; i < length; i++) {
-            if (swapRouters[i] == swapRouter) {
-                swapRouters[i] = swapRouters[length - 1];
-                swapRouters.pop();
-                delete whitelistedSwapRouters[swapRouter];
-                emit SwapRouterRemovedFromWhitelist(swapRouter);
-                break;
-            }
-        }
-    }
-
-    /**
      * @dev whiteListTarget allows whitelisting the target address that can be called by the vault through multicallByManager
      * function.
      * @param target the address to add to the targets whitelist.
@@ -480,20 +381,6 @@ contract RangeProtocolVertexVault is
     }
 
     /**
-     * @dev changeSwapThreshold allows changing of swap threshold. Swap threshold is the minimum acceptable ratio of
-     * vault's underlying balance before and after the swap through {swap} function.
-     * @param newSwapThreshold the new swapThreshold to set.
-     * requirements
-     * - only upgrader can call this function.
-     */
-    function changeSwapThreshold(uint256 newSwapThreshold) external override onlyUpgrader {
-        // @note we are not adding a limit check on swap threshold optimistically assuming that the upgrader will
-        // set a reasonable limit on the swap threshold.
-        swapThreshold = newSwapThreshold;
-        emit SwapThresholdChanged(newSwapThreshold);
-    }
-
-    /**
      * @dev getMintAmount returns the amount of vault shares user gets upon depositing the {depositAmount} of usdc.
      * @param depositAmount the amount of usdc to deposit.
      */
@@ -522,9 +409,9 @@ contract RangeProtocolVertexVault is
     /**
      * @dev returns underlying vault holding in {usdc}. The vault holding represents passive USDC, wBTC and wETH in the vault
      * along with any PnL from the whitelisted perp products on the Vertex protocol.
-     * @return the total holding of the vault in USDC.
+     * @return vaultBalance the total holding of the vault in USDC.
      */
-    function getUnderlyingBalance() public view override returns (uint256) {
+    function getUnderlyingBalance() public view override returns (uint256 vaultBalance) {
         uint256[] memory _productIds = productIds;
         bytes32 _contractSubAccount = contractSubAccount;
 
@@ -533,11 +420,10 @@ contract RangeProtocolVertexVault is
 
         // get PnL balance from all perp products.
         for (uint256 i = 0; i < _productIds.length; i++) {
-            signedBalance += perpEngine.getPositionPnl(uint32(_productIds[i]), _contractSubAccount);
+            uint32 productId = uint32(_productIds[i]);
+            // only compute perps pnl balances.
+            if (productId % 2 == 0) signedBalance += perpEngine.getPositionPnl(productId, _contractSubAccount);
         }
-
-        // should never happen as the account would be liquidated below maintenance margin.
-        if (signedBalance < 0) revert VaultErrors.VaultIsUnderWater();
 
         uint256 usdcPrice = uint256(getPriceFromOracle(usdc));
         uint256 usdcDecimalsMultiplier = 10 ** IERC20Metadata(address(usdc)).decimals();
@@ -545,15 +431,30 @@ contract RangeProtocolVertexVault is
 
         // @notice calculate passive balance as usdc balance in the vault + wETH balance in the vault (converted to usdc)
         // + wBTC balance in the vault (converted to usdc).
-        uint256 passiveBalance = usdc.balanceOf(address(this))
-            + getAssetAmountInUsdc(wETH, usdcPrice, usdcDecimalsMultiplier, usdcPriceFeedDecimalsMultiplier)
-            + getAssetAmountInUsdc(wBTC, usdcPrice, usdcDecimalsMultiplier, usdcPriceFeedDecimalsMultiplier);
+        uint256 spotBalance = getAssetAmountInUsdc(
+            wETH,
+            _spotBalanceByProductId(ETH_SPOT_ID), // get ETH spot balance
+            usdcPrice,
+            usdcDecimalsMultiplier,
+            usdcPriceFeedDecimalsMultiplier
+        )
+            + getAssetAmountInUsdc(
+                wBTC,
+                _spotBalanceByProductId(BTC_SPOT_ID), // get WBTC spot balance
+                usdcPrice,
+                usdcDecimalsMultiplier,
+                usdcPriceFeedDecimalsMultiplier
+            );
+
+        int256 totalVertexBalanceSigned =
+            _toXTokenDecimals(signedBalance) + int256(spotBalance) + int256(getPendingBalance());
+        if (totalVertexBalanceSigned < 0) revert VaultErrors.VaultIsUnderWater();
+
+        vaultBalance = uint256(totalVertexBalanceSigned + int256(usdc.balanceOf(address(this))));
 
         // We optimistically assume that managerBalance will always be part of passive balance
         // but in the event, it is not there, we add this check to avoid the underflow.
-        if (passiveBalance >= managerBalance) passiveBalance -= managerBalance;
-
-        return _toXTokenDecimals(uint256(signedBalance)) + passiveBalance + getPendingBalance();
+        if (vaultBalance >= managerBalance) vaultBalance -= managerBalance;
     }
 
     /**
@@ -565,6 +466,7 @@ contract RangeProtocolVertexVault is
      */
     function getAssetAmountInUsdc(
         IERC20 asset,
+        uint256 amount,
         uint256 usdcPrice,
         uint256 usdcDecimalsMultiplier,
         uint256 usdcPriceFeedDecimalsMultiplier
@@ -573,9 +475,8 @@ contract RangeProtocolVertexVault is
         view
         returns (uint256)
     {
-        return asset.balanceOf(address(this)) * uint256(getPriceFromOracle(asset)) * usdcDecimalsMultiplier
-            * usdcPriceFeedDecimalsMultiplier / 10 ** priceFeedData[asset].priceFeed.decimals()
-            / 10 ** IERC20Metadata(address(asset)).decimals() / usdcPrice;
+        return amount * uint256(getPriceFromOracle(asset)) * usdcDecimalsMultiplier * usdcPriceFeedDecimalsMultiplier
+            / 10 ** priceFeedData[asset].priceFeed.decimals() / uint256(X18_MULTIPLIER) / usdcPrice;
     }
 
     /**
@@ -617,6 +518,10 @@ contract RangeProtocolVertexVault is
         return (uint8(transaction[0]), transaction[1:]);
     }
 
+    function _spotBalanceByProductId(uint32 productId) private view returns (uint256) {
+        return uint256(int256(spotEngine.getBalance(productId, contractSubAccount).amount));
+    }
+
     /**
      * @dev sets managing fee to a maximum of {MAX_MANAGING_FEE}.
      * requirements
@@ -655,7 +560,7 @@ contract RangeProtocolVertexVault is
     /**
      * @dev convert amount X18 amount to the decimal precision of {usdc}
      */
-    function _toXTokenDecimals(uint256 amountX18) private view returns (uint256 amountXTokenDecimals) {
-        amountXTokenDecimals = (amountX18 * 10 ** IERC20Metadata(address(usdc)).decimals()) / X18_MULTIPLIER;
+    function _toXTokenDecimals(int256 amountX18) private view returns (int256 amountXTokenDecimals) {
+        amountXTokenDecimals = (amountX18 * int256(10 ** IERC20Metadata(address(usdc)).decimals())) / X18_MULTIPLIER;
     }
 }

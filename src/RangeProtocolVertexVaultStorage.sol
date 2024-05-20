@@ -26,9 +26,9 @@ abstract contract RangeProtocolVertexVaultStorage is IRangeProtocolVertexVault {
     address public upgrader;
     mapping(address => bool) public whitelistedTargets;
     address[] public targets;
-    mapping(address => bool) public whitelistedSwapRouters;
-    address[] public swapRouters;
-    uint256 public swapThreshold;
+    mapping(address => bool) public whitelistedSwapRouters; // unuset slot
+    address[] public swapRouters; // unused slot
+    uint256 public swapThreshold; // unused slot
     mapping(IERC20 asset => PriceFeedData) public priceFeedData;
     IERC20 public wETH;
     IERC20 public wBTC;
