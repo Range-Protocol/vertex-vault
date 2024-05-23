@@ -62,8 +62,6 @@ contract RangeProtocolVertexVault is
     uint256 public constant MAX_MANAGING_FEE = 1000;
     int256 public constant X18_MULTIPLIER = 10 ** 18;
     uint256 public constant DECIMALS_DIFFERENCE_MULTIPLIER = 10 ** 12;
-    uint32 public constant ETH_SPOT_ID = 3;
-    uint32 public constant BTC_SPOT_ID = 1;
 
     modifier onlyUpgrader() {
         if (msg.sender != upgrader) revert VaultErrors.OnlyUpgraderAllowed();
@@ -110,7 +108,6 @@ contract RangeProtocolVertexVault is
         __ERC20_init(_name, _symbol);
         __Pausable_init();
 
-        _transferOwnership(_manager);
         spotEngine = _spotEngine;
         perpEngine = _perpEngine;
         endpoint = _endpoint;
@@ -119,15 +116,63 @@ contract RangeProtocolVertexVault is
         _setManagingFee(100); // set 1% as managing fee
         upgrader = _upgrader;
 
-        // wETH and wBTC addresses that we expect to have as passive balance in the vault after swapping
-        // vault's USDC to wETH and wBTC.
-        wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
-        wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+        addProduct(0);
+        addProduct(1);
+        addProduct(2);
+        addProduct(3);
+        addProduct(4);
+
+        IERC20 wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
+        IERC20 wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+
+        // add usdc as asset.
+        _addAsset(
+            _usdc,
+            AssetData({
+                idx: 0,
+                spotId: 0,
+                perpId: 0,
+                priceFeed: AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3),
+                heartbeat: 86_400 + 1800
+            })
+        );
+
+        // add wETH as asset.
+        _addAsset(
+            wETH,
+            AssetData({
+                idx: 0,
+                spotId: 3,
+                perpId: 4,
+                priceFeed: AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612),
+                heartbeat: 86_400 + 1800
+            })
+        );
+
+        // add wBTC as asset.
+        _addAsset(
+            wBTC,
+            AssetData({
+                idx: 0,
+                spotId: 1,
+                perpId: 2,
+                priceFeed: AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57),
+                heartbeat: 86_400 + 1800
+            })
+        );
 
         // whitelist USDC so we could call approve function on the contract in multicallByManager function.
         whitelistedTargets[address(usdc)] = true;
         targets.push(address(usdc));
         emit TargetAddedToWhitelist(address(usdc));
+
+        whitelistedTargets[address(wETH)] = true;
+        targets.push(address(wETH));
+        emit TargetAddedToWhitelist(address(wETH));
+
+        whitelistedTargets[address(wBTC)] = true;
+        targets.push(address(wBTC));
+        emit TargetAddedToWhitelist(address(wBTC));
 
         // whitelist endpoint contract to allow manager to deposit and withdraw assets to and from Vertex using
         // multicallByManager function.
@@ -135,15 +180,14 @@ contract RangeProtocolVertexVault is
         targets.push(address(endpoint));
         emit TargetAddedToWhitelist(address(endpoint));
 
-        // set the price oracles for the vault's assets.
-        // 86400 is the seconds for heartbeats for the individual price feeds, 1800 seconds is the 30 minutes buffer
-        // added on the top of heartbeat
-        priceFeedData[usdc] =
-            PriceFeedData(AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3), 86_400 + 1800);
-        priceFeedData[wETH] =
-            PriceFeedData(AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800);
-        priceFeedData[wBTC] =
-            PriceFeedData(AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57), 86_400 + 1800);
+        // whitelisting native router, so this router could be called in swap function to perform swap between assets.
+        address nativeRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
+        whitelistedSwapRouters[nativeRouter] = true;
+        swapRouters.push(nativeRouter);
+        emit SwapRouterAddedToWhitelist(nativeRouter);
+        swapThreshold = 9995;
+
+        _transferOwnership(_manager);
     }
 
     /**
@@ -213,6 +257,64 @@ contract RangeProtocolVertexVault is
     }
 
     /**
+     * @dev swap function to swap the vault's assets. Calls the calldata on whitelisted swap router.
+     * @param target the whitelisted address of the swap router.
+     * @param swapData the calldata for the swap.
+     * @param tokenIn the address of the token to be swapped.
+     * @param amountIn the amount of the swapped token.
+     * requirements
+     * - only manager can call it.
+     * - the {target} address must be a whitelisted swap router.
+     * - the call to swap function must satisfy the minimum swap interval.
+     * - the ratio of underlying vault's balance before and after the swap must not fall below the swap threshold.
+     */
+    function swap(address target, bytes calldata swapData, IERC20 tokenIn, uint256 amountIn) external onlyManager {
+        // the swap router must be whitelisted.
+        if (!whitelistedSwapRouters[target]) revert VaultErrors.SwapRouterIsNotWhitelisted();
+
+        // cache the balances of the vault before swap.
+        IERC20[] memory _assets = assets;
+        uint256[] memory balancesBefore = new uint256[](assets.length);
+        for (uint256 i = 0; i < _assets.length; i++) {
+            balancesBefore[i] = _assets[i].balanceOf(address(this));
+        }
+
+        uint256 underlyingBalanceBefore = getUnderlyingBalance();
+
+        // perform swap
+        tokenIn.forceApprove(target, amountIn);
+        Address.functionCall(target, swapData);
+        tokenIn.forceApprove(target, 0);
+
+        // get underlying balance of the vault after swap.
+        uint256[] memory balancesAfter = new uint256[](_assets.length);
+        for (uint256 i = 0; i < _assets.length; i++) {
+            balancesAfter[i] = _assets[i].balanceOf(address(this));
+        }
+        uint256 underlyingBalanceAfter = getUnderlyingBalance();
+
+        // revert the transaction if the ratio between underlying balance of the vault before and after the swap falls
+        // below a the specified swap threshold.
+        if ((underlyingBalanceAfter * 10_000 / underlyingBalanceBefore) < swapThreshold) {
+            revert VaultErrors.SwapThresholdExceeded();
+        }
+
+        IERC20 tokenOut;
+        uint256 amountOut;
+        for (uint256 i = 0; i < _assets.length; i++) {
+            if (balancesAfter[i] > balancesBefore[i]) {
+                tokenOut = _assets[i];
+                amountOut = balancesAfter[i] - balancesBefore[i];
+                break;
+            }
+        }
+
+        if (tokenOut == IERC20(address(0x0)) || amountOut == 0) revert VaultErrors.IncorrectSwap();
+
+        emit Swapped(tokenIn, amountIn, tokenOut, amountOut, block.timestamp);
+    }
+
+    /**
      * @dev allows manager to perform low-level calls to the whitelisted target addresses.
      * @param targets the list of {target} addresses to send the call-data to.
      * @param data the list of call-data to send to the correspondingly indexed {target}.
@@ -227,9 +329,9 @@ contract RangeProtocolVertexVault is
         for (uint256 i = 0; i < targets.length; i++) {
             if (!whitelistedTargets[targets[i]]) revert VaultErrors.TargetIsNotWhitelisted();
             if (
-                targets[i] == address(usdc)
+                assetsData[IERC20(targets[i])].heartbeat != 0 // if target is an asset
                     && (
-                        bytes4(data[i][:4]) != usdc.approve.selector
+                        bytes4(data[i][:4]) != IERC20.approve.selector
                             || address(uint160(uint256(bytes32(data[i][4:36])))) != address(endpoint)
                     )
             ) revert VaultErrors.InvalidMulticall();
@@ -342,6 +444,44 @@ contract RangeProtocolVertexVault is
     }
 
     /**
+     * @dev whiteListSwapRouter allows whitelisting a swap router address.
+     * @param swapRouter the address of the swap router.
+     * requirements
+     * - only upgrader can call this function
+     * - the swap router must not be already whitelisted.
+     */
+    function whiteListSwapRouter(address swapRouter) external override onlyUpgrader {
+        if (whitelistedSwapRouters[swapRouter]) revert VaultErrors.SwapRouterIsWhitelisted();
+
+        whitelistedSwapRouters[swapRouter] = true;
+        swapRouters.push(swapRouter);
+
+        emit SwapRouterAddedToWhitelist(swapRouter);
+    }
+
+    /**
+     * @dev removeSwapRouterFromWhitelist removes swap router from the whitelist of swap routers.
+     * @param swapRouter the address of the swapRouter to remove from whitelist.
+     * requirements
+     * - only upgrader can call this function.
+     * - the swap must be whitelisted.
+     */
+    function removeSwapRouterFromWhitelist(address swapRouter) external override onlyUpgrader {
+        if (!whitelistedSwapRouters[swapRouter]) revert VaultErrors.SwapRouterIsNotWhitelisted();
+
+        uint256 length = swapRouters.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (swapRouters[i] == swapRouter) {
+                swapRouters[i] = swapRouters[length - 1];
+                swapRouters.pop();
+                delete whitelistedSwapRouters[swapRouter];
+                emit SwapRouterRemovedFromWhitelist(swapRouter);
+                break;
+            }
+        }
+    }
+
+    /**
      * @dev whiteListTarget allows whitelisting the target address that can be called by the vault through multicallByManager
      * function.
      * @param target the address to add to the targets whitelist.
@@ -381,6 +521,28 @@ contract RangeProtocolVertexVault is
     }
 
     /**
+     * @dev changeSwapThreshold allows changing of swap threshold. Swap threshold is the minimum acceptable ratio of
+     * vault's underlying balance before and after the swap through {swap} function.
+     * @param newSwapThreshold the new swapThreshold to set.
+     * requirements
+     * - only upgrader can call this function.
+     */
+    function changeSwapThreshold(uint256 newSwapThreshold) external override onlyUpgrader {
+        // @note we are not adding a limit check on swap threshold optimistically assuming that the upgrader will
+        // set a reasonable limit on the swap threshold.
+        swapThreshold = newSwapThreshold;
+        emit SwapThresholdChanged(newSwapThreshold);
+    }
+
+    function addAsset(IERC20 asset, AssetData memory assetData) external override onlyUpgrader {
+        _addAsset(asset, assetData);
+    }
+
+    function removeAsset(IERC20 asset) external override onlyUpgrader {
+        _removeAsset(asset);
+    }
+
+    /**
      * @dev getMintAmount returns the amount of vault shares user gets upon depositing the {depositAmount} of usdc.
      * @param depositAmount the amount of usdc to deposit.
      */
@@ -412,45 +574,41 @@ contract RangeProtocolVertexVault is
      * @return vaultBalance the total holding of the vault in USDC.
      */
     function getUnderlyingBalance() public view override returns (uint256 vaultBalance) {
+        uint256 usdcPrice = uint256(getPriceFromOracle(usdc));
+        uint256 usdcDecimalsMultiplier = 10 ** IERC20Metadata(address(usdc)).decimals();
+        uint256 usdcPriceFeedDecimalsMultiplier = 10 ** assetsData[usdc].priceFeed.decimals();
+
         uint256[] memory _productIds = productIds;
-        bytes32 _contractSubAccount = contractSubAccount;
-
-        // get usdc margin balance + any settled amounts from trades.
-        int256 signedBalance = spotEngine.getBalance(0, _contractSubAccount).amount;
-
-        // get PnL balance from all perp products.
+        uint256[] memory pendingBalances = getPendingBalances();
+        int256 signedBalance;
         for (uint256 i = 0; i < _productIds.length; i++) {
             uint32 productId = uint32(_productIds[i]);
             // only compute perps pnl balances.
-            if (productId % 2 == 0) signedBalance += perpEngine.getPositionPnl(productId, _contractSubAccount);
+            if (productId % 2 == 0 && productId != 0) {
+                signedBalance += _perpPnLByProductId(productId, usdcDecimalsMultiplier);
+            } else {
+                IERC20Metadata asset = IERC20Metadata(address(spotIdToAsset[productId]));
+                uint256 assetDecimalsMultiplier = 10 ** asset.decimals();
+                int256 amountToAdd = _spotBalanceByProductId(productId, assetDecimalsMultiplier)
+                    + int256(pendingBalances[assetsData[asset].idx]) + int256(asset.balanceOf(address(this)));
+
+                if (productId != 0) {
+                    amountToAdd = getAssetAmountInUsdc(
+                        asset,
+                        amountToAdd,
+                        assetDecimalsMultiplier,
+                        usdcPrice,
+                        usdcDecimalsMultiplier,
+                        usdcPriceFeedDecimalsMultiplier
+                    );
+                }
+
+                signedBalance += amountToAdd;
+            }
         }
+        if (signedBalance < 0) revert VaultErrors.VaultIsUnderWater();
 
-        uint256 usdcPrice = uint256(getPriceFromOracle(usdc));
-        uint256 usdcDecimalsMultiplier = 10 ** IERC20Metadata(address(usdc)).decimals();
-        uint256 usdcPriceFeedDecimalsMultiplier = 10 ** priceFeedData[usdc].priceFeed.decimals();
-
-        // @notice calculate passive balance as usdc balance in the vault + wETH balance in the vault (converted to usdc)
-        // + wBTC balance in the vault (converted to usdc).
-        uint256 spotBalance = getAssetAmountInUsdc(
-            wETH,
-            _spotBalanceByProductId(ETH_SPOT_ID), // get ETH spot balance
-            usdcPrice,
-            usdcDecimalsMultiplier,
-            usdcPriceFeedDecimalsMultiplier
-        )
-            + getAssetAmountInUsdc(
-                wBTC,
-                _spotBalanceByProductId(BTC_SPOT_ID), // get WBTC spot balance
-                usdcPrice,
-                usdcDecimalsMultiplier,
-                usdcPriceFeedDecimalsMultiplier
-            );
-
-        int256 totalVertexBalanceSigned =
-            _toXTokenDecimals(signedBalance) + int256(spotBalance) + int256(getPendingBalance());
-        if (totalVertexBalanceSigned < 0) revert VaultErrors.VaultIsUnderWater();
-
-        vaultBalance = uint256(totalVertexBalanceSigned + int256(usdc.balanceOf(address(this))));
+        vaultBalance = uint256(signedBalance);
 
         // We optimistically assume that managerBalance will always be part of passive balance
         // but in the event, it is not there, we add this check to avoid the underflow.
@@ -465,18 +623,22 @@ contract RangeProtocolVertexVault is
      * @return the asset holding of the vault in usdc.
      */
     function getAssetAmountInUsdc(
-        IERC20 asset,
-        uint256 amount,
+        IERC20Metadata asset,
+        int256 amount,
+        uint256 assetDecimalsMultiplier,
         uint256 usdcPrice,
         uint256 usdcDecimalsMultiplier,
         uint256 usdcPriceFeedDecimalsMultiplier
     )
         public
         view
-        returns (uint256)
+        returns (int256)
     {
-        return amount * uint256(getPriceFromOracle(asset)) * usdcDecimalsMultiplier * usdcPriceFeedDecimalsMultiplier
-            / 10 ** priceFeedData[asset].priceFeed.decimals() / uint256(X18_MULTIPLIER) / usdcPrice;
+        uint256 amountInUsdc = uint256(amount > 0 ? amount : -amount) * uint256(getPriceFromOracle(asset))
+            * usdcDecimalsMultiplier * usdcPriceFeedDecimalsMultiplier / 10 ** assetsData[asset].priceFeed.decimals()
+            / assetDecimalsMultiplier / usdcPrice;
+
+        return amount < 0 ? -int256(amountInUsdc) : int256(amountInUsdc);
     }
 
     /**
@@ -486,8 +648,8 @@ contract RangeProtocolVertexVault is
      * - price must not be older than two days
      */
     function getPriceFromOracle(IERC20 token) public view returns (int256) {
-        (, int256 price,, uint256 updatedAt,) = priceFeedData[token].priceFeed.latestRoundData();
-        if (block.timestamp - updatedAt > priceFeedData[token].heartbeat) revert VaultErrors.OutdatedPrice();
+        (, int256 price,, uint256 updatedAt,) = assetsData[token].priceFeed.latestRoundData();
+        if (block.timestamp - updatedAt > assetsData[token].heartbeat) revert VaultErrors.OutdatedPrice();
         return price;
     }
 
@@ -495,9 +657,10 @@ contract RangeProtocolVertexVault is
      * @dev getting pending balance from vertex.
      * It checks all the queued transaction and fetched the deposit transactions
      * sent by the vault and calculate pending balance from it.
-     * @return pendingBalance the pending balance amount.
+     * @return pendingBalances the pending balances amounts.
      */
-    function getPendingBalance() public view override returns (uint256 pendingBalance) {
+    function getPendingBalances() public view override returns (uint256[] memory pendingBalances) {
+        pendingBalances = new uint256[](assets.length);
         (, uint64 txUpTo, uint64 txCount) = endpoint.getSlowModeTx(0);
         for (uint64 i = txUpTo; i < txCount; i++) {
             (IEndpoint.SlowModeTx memory slowMode,,) = endpoint.getSlowModeTx(i);
@@ -506,9 +669,15 @@ contract RangeProtocolVertexVault is
             (uint8 txType, bytes memory payload) = this.decodeTx(slowMode.tx);
             if (txType == uint8(IEndpoint.TransactionType.DepositCollateral)) {
                 IEndpoint.DepositCollateral memory depositPayload = abi.decode(payload, (IEndpoint.DepositCollateral));
-                if (depositPayload.productId == 0) pendingBalance += uint256(depositPayload.amount);
+                IERC20 asset = spotIdToAsset[depositPayload.productId];
+                if (asset == IERC20(address(0x0))) continue;
+                pendingBalances[assetsData[asset].idx] += uint256(depositPayload.amount);
             }
         }
+    }
+
+    function assetsList() external view override returns (IERC20[] memory) {
+        return assets;
     }
 
     /**
@@ -518,8 +687,14 @@ contract RangeProtocolVertexVault is
         return (uint8(transaction[0]), transaction[1:]);
     }
 
-    function _spotBalanceByProductId(uint32 productId) private view returns (uint256) {
-        return uint256(int256(spotEngine.getBalance(productId, contractSubAccount).amount));
+    function _spotBalanceByProductId(uint32 productId, uint256 assetDecimalsMultiplier) private view returns (int256) {
+        return int256(spotEngine.getBalance(productId, contractSubAccount).amount) * int256(assetDecimalsMultiplier)
+            / X18_MULTIPLIER;
+    }
+
+    function _perpPnLByProductId(uint32 productId, uint256 usdcDecimalsMultiplier) private view returns (int256) {
+        return int256(perpEngine.getPositionPnl(productId, contractSubAccount)) * int256(usdcDecimalsMultiplier)
+            / X18_MULTIPLIER;
     }
 
     /**
@@ -557,10 +732,28 @@ contract RangeProtocolVertexVault is
      */
     function _authorizeUpgrade(address) internal view override onlyUpgrader { }
 
-    /**
-     * @dev convert amount X18 amount to the decimal precision of {usdc}
-     */
-    function _toXTokenDecimals(int256 amountX18) private view returns (int256 amountXTokenDecimals) {
-        amountXTokenDecimals = (amountX18 * int256(10 ** IERC20Metadata(address(usdc)).decimals())) / X18_MULTIPLIER;
+    function _addAsset(IERC20 asset, AssetData memory assetData) private {
+        if (assetsData[asset].perpId != 0) revert VaultErrors.AssetAlreadyAdded();
+        assetData.idx = assets.length;
+        assetsData[asset] = assetData;
+        spotIdToAsset[assetData.spotId] = asset;
+        assets.push(asset);
+        emit AssetAdded(asset);
+    }
+
+    function _removeAsset(IERC20 asset) private {
+        if (assetsData[asset].perpId == 0) revert VaultErrors.AssetNotAdded();
+        delete spotIdToAsset[assetsData[asset].spotId];
+        delete assetsData[asset];
+
+        uint256 length = assets.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (assets[i] == asset) {
+                assets[i] = assets[length - 1];
+                assets.pop();
+                break;
+            }
+        }
+        emit AssetRemoved(asset);
     }
 }

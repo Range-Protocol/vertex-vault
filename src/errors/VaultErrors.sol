@@ -25,4 +25,6 @@ library VaultErrors {
     error IncorrectSwap();
     error OutdatedPrice();
     error CallNotAllowed();
+    error AssetAlreadyAdded();
+    error AssetNotAdded();
 }
