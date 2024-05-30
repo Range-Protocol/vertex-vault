@@ -9,7 +9,7 @@ import { IRangeProtocolVertexVault } from '../src/interfaces/IRangeProtocolVerte
 import { ISpotEngine } from '../src/interfaces/vertex/ISpotEngine.sol';
 import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
 import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
-import { IUSDC } from './IUSDC.sol';
+import { IUSDB } from './IUSDB.sol';
 import { VaultErrors } from '../src/errors/VaultErrors.sol';
 import { FullMath } from '../src/libraries/FullMath.sol';
 import { ERC1967Proxy } from
@@ -27,13 +27,14 @@ contract RangeProtocolVertexVaultTest is Test {
 
     error FailedInnerCall();
     error EnforcedPause();
+    error InsufficientAllowance();
 
-    ISpotEngine spotEngine = ISpotEngine(0x32d91Af2B17054D575A7bF1ACfa7615f41CCEfaB);
-    IPerpEngine perpEngine = IPerpEngine(0xb74C78cca0FADAFBeE52B2f48A67eE8c834b5fd1);
-    IEndpoint endpoint = IEndpoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
-    IUSDC usdc = IUSDC(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
-    IERC20 wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
-    IERC20 wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+    ISpotEngine spotEngine = ISpotEngine(0x57c1AB256403532d02D1150C5790423967B22Bf2);
+    IPerpEngine perpEngine = IPerpEngine(0x0bc0c84976e21aaF7bE71d318eD93A5f5c9978A4);
+    IEndpoint endpoint = IEndpoint(0x00F076FE36f2341A1054B16ae05FcE0C65180DeD);
+    IUSDB usdb = IUSDB(0x4300000000000000000000000000000000000003);
+    IERC20 wETH = IERC20(0x4300000000000000000000000000000000000004);
+    IERC20 wBTC = IERC20(0xF7bc58b8D8f97ADC129cfC4c9f45Ce3C0E1D2692);
 
     RangeProtocolVertexVault vault;
     address manager = 0x38E292E52302351aAdf5Ef51D4d3bb30bD355b25;
@@ -41,10 +42,10 @@ contract RangeProtocolVertexVaultTest is Test {
     //    address swapRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
 
     function setUp() external {
-        uint256 fork = vm.createFork(vm.rpcUrl('arbitrum'));
+        uint256 fork = vm.createFork(vm.rpcUrl('blast'));
         vm.selectFork(fork);
-        vm.prank(0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D);
-        usdc.transfer(manager, 100_000 * 10 ** 6);
+        vm.prank(0x020cA66C30beC2c4Fe3861a94E4DB4A498A35872);
+        usdb.transfer(manager, 100_000 * 10 ** 18);
 
         address vaultImpl = address(new RangeProtocolVertexVault());
         vault = RangeProtocolVertexVault(
@@ -56,7 +57,7 @@ contract RangeProtocolVertexVaultTest is Test {
                         address(spotEngine),
                         address(perpEngine),
                         address(endpoint),
-                        address(usdc),
+                        address(usdb),
                         manager,
                         'Vertex Test Vault',
                         'VTX',
@@ -72,13 +73,13 @@ contract RangeProtocolVertexVaultTest is Test {
     function testDeployment() external {
         IRangeProtocolVertexVault.AssetData[] memory assetsDataList = new IRangeProtocolVertexVault.AssetData[](3);
         assetsDataList[0] = IRangeProtocolVertexVault.AssetData(
-            0, 0, 0, AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3), 86_400 + 1800
+            0, 0, 0, AggregatorV3Interface(0x3A236F67Fce401D87D7215695235e201966576E4), 86_400 + 1800
         );
         assetsDataList[1] = IRangeProtocolVertexVault.AssetData(
-            1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
+            1, 3, 4, AggregatorV3Interface(0x0af23B08bcd8AD35D1e8e8f2D2B779024Bd8D24A), 86_400 + 1800
         );
         assetsDataList[2] = IRangeProtocolVertexVault.AssetData(
-            2, 1, 2, AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57), 86_400 + 1800
+            2, 1, 2, AggregatorV3Interface(0x7262c8C5872A4Aa0096A8817cF61f5fa3c537330), 86_400 + 1800
         );
         IERC20[] memory assets = vault.assetsList();
         for (uint256 i = 0; i < assets.length; i++) {
@@ -92,12 +93,10 @@ contract RangeProtocolVertexVaultTest is Test {
         }
 
         assertEq(vault.upgrader(), upgrader);
-        assertEq(vault.whitelistedTargets(address(usdc)), true);
-        assertEq(vault.targets(0), address(usdc));
+        assertEq(vault.whitelistedTargets(address(usdb)), true);
+        assertEq(vault.targets(0), address(usdb));
         assertEq(vault.whitelistedTargets(address(endpoint)), true);
         assertEq(vault.targets(3), address(endpoint));
-        assertEq(vault.whitelistedSwapRouters(address(0xEAd050515E10fDB3540ccD6f8236C46790508A76)), true);
-        assertEq(vault.swapRouters(0), address(0xEAd050515E10fDB3540ccD6f8236C46790508A76));
         assertEq(vault.swapThreshold(), 9995);
     }
 
@@ -131,7 +130,7 @@ contract RangeProtocolVertexVaultTest is Test {
         vault.addAsset(
             wETH,
             IRangeProtocolVertexVault.AssetData(
-                1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
+                1, 3, 4, AggregatorV3Interface(0x0af23B08bcd8AD35D1e8e8f2D2B779024Bd8D24A), 86_400 + 1800
             )
         );
     }
@@ -151,7 +150,7 @@ contract RangeProtocolVertexVaultTest is Test {
         vault.addAsset(
             wETH,
             IRangeProtocolVertexVault.AssetData(
-                1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
+                1, 3, 4, AggregatorV3Interface(0x0af23B08bcd8AD35D1e8e8f2D2B779024Bd8D24A), 86_400 + 1800
             )
         );
         (idx, spotId,,,) = vault.assetsData(wETH);
@@ -163,21 +162,21 @@ contract RangeProtocolVertexVaultTest is Test {
         vault.addAsset(
             wETH,
             IRangeProtocolVertexVault.AssetData(
-                1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
+                1, 3, 4, AggregatorV3Interface(0x0af23B08bcd8AD35D1e8e8f2D2B779024Bd8D24A), 86_400 + 1800
             )
         );
     }
 
-    //    function testSwapWithNonWhitelistedTarget() external {
-    //        bytes memory callData = vm.envBytes('calldata');
-    //        vm.expectRevert(VaultErrors.SwapRouterIsNotWhitelisted.selector);
-    //        vault.swap(address(0x123), callData, IERC20(address(0x123)), 0);
-    //    }
+    //        function testSwapWithNonWhitelistedTarget() external {
+    //            bytes memory callData = vm.envBytes('calldata');
+    //            vm.expectRevert(VaultErrors.SwapRouterIsNotWhitelisted.selector);
+    //            vault.swap(address(0x123), callData, IERC20(address(0x123)), 0);
+    //        }
     //
-    //    function testSwap() external {
-    //        bytes memory callData = vm.envBytes('calldata');
-    //        vault.swap(swapRouter, callData, IERC20(address(usdc)), 2000e6);
-    //    }
+    //        function testSwap() external {
+    //            bytes memory callData = vm.envBytes('calldata');
+    //            vault.swap(swapRouter, callData, IERC20(address(usdb)), 2000e6);
+    //        }
 
     function testUnderlyingBalance() external {
         //        deal(address(wETH), manager, 100_000e18);
@@ -270,21 +269,21 @@ contract RangeProtocolVertexVaultTest is Test {
     }
 
     function testMintWithoutApprove() external {
-        uint256 amount = 1000 * 10 ** 6;
-        vm.expectRevert(bytes('ERC20: transfer amount exceeds allowance'));
+        uint256 amount = 1000 * 10 ** 18;
+        vm.expectRevert(InsufficientAllowance.selector);
         vault.mint(amount, 0);
     }
 
     function testMintWhenPaused() external {
         vault.pause();
-        uint256 amount = 1000 * 10 ** 6;
+        uint256 amount = 1000 * 10 ** 18;
         vm.expectRevert(EnforcedPause.selector);
         vault.mint(amount, 0);
     }
 
     function testMint() external {
         uint256 amount = 1e6;
-        usdc.approve(address(vault), amount);
+        usdb.approve(address(vault), amount);
 
         uint256 vaultBalanceBefore = vault.getUnderlyingBalance();
         uint256 minShares = vault.getMintAmount(amount);
@@ -312,7 +311,7 @@ contract RangeProtocolVertexVaultTest is Test {
 
     function testBurnWithMoreThanExpectedAmount() external {
         uint256 amount = 1e6;
-        usdc.approve(address(vault), amount);
+        usdb.approve(address(vault), amount);
         vault.mint(amount, 0);
         uint256 vaultShares = vault.balanceOf(manager);
         uint256 expectedAmount = vault.getUnderlyingBalanceByShares(vaultShares);
@@ -323,7 +322,7 @@ contract RangeProtocolVertexVaultTest is Test {
 
     function testBurnWhenPaused() external {
         uint256 amount = 1e6;
-        usdc.approve(address(vault), amount);
+        usdb.approve(address(vault), amount);
         vault.mint(amount, 0);
         vault.pause();
         uint256 burnAmount = vault.balanceOf(manager);
@@ -332,9 +331,9 @@ contract RangeProtocolVertexVaultTest is Test {
     }
 
     function testBurn() external {
-        //        usdc.transfer(address(vault), 100e6);
+        //        usdb.transfer(address(vault), 100e6);
         uint256 amount = 10e6;
-        usdc.approve(address(vault), amount);
+        usdb.approve(address(vault), amount);
         vault.mint(amount, 0);
 
         uint256 vaultShares = vault.balanceOf(manager);
@@ -346,10 +345,10 @@ contract RangeProtocolVertexVaultTest is Test {
         vault.burn(vaultShares, expectedAmount);
 
         assertEq(vault.managerBalance(), expectedManagerBalance);
-        uint256 managerAccountBalanceBefore = usdc.balanceOf(manager);
+        uint256 managerAccountBalanceBefore = usdb.balanceOf(manager);
         vault.collectManagerFee();
         assertEq(vault.managerBalance(), 0);
-        assertEq(usdc.balanceOf(manager), managerAccountBalanceBefore + expectedManagerBalance);
+        assertEq(usdb.balanceOf(manager), managerAccountBalanceBefore + expectedManagerBalance);
     }
 
     //    function testBurnWithZeroRedeemableAmount() external {
@@ -468,7 +467,7 @@ contract RangeProtocolVertexVaultTest is Test {
     function testMulticallWithDepositTokenAndNonApproveFunction() external {
         address[] memory targets = new address[](1);
         bytes[] memory data = new bytes[](1);
-        targets[0] = address(usdc);
+        targets[0] = address(usdb);
         data[0] = abi.encode(bytes4(uint32(0)));
         vm.expectRevert(VaultErrors.InvalidMulticall.selector);
         vault.multicallByManager(targets, data);
@@ -477,8 +476,8 @@ contract RangeProtocolVertexVaultTest is Test {
     function testMulticallWithDepositTokenAndApproveFunctionWithNonEndpointAddress() external {
         address[] memory targets = new address[](1);
         bytes[] memory data = new bytes[](1);
-        targets[0] = address(usdc);
-        data[0] = abi.encodeWithSelector(usdc.approve.selector, address(0x1), 123);
+        targets[0] = address(usdb);
+        data[0] = abi.encodeWithSelector(usdb.approve.selector, address(0x1), 123);
         vm.expectRevert(VaultErrors.InvalidMulticall.selector);
         vault.multicallByManager(targets, data);
     }
@@ -486,8 +485,8 @@ contract RangeProtocolVertexVaultTest is Test {
     function testMulticallWithDepositTokenAndApproveFunction() external {
         address[] memory targets = new address[](1);
         bytes[] memory data = new bytes[](1);
-        targets[0] = address(usdc);
-        data[0] = abi.encodeWithSelector(usdc.approve.selector, address(endpoint), 123);
+        targets[0] = address(usdb);
+        data[0] = abi.encodeWithSelector(usdb.approve.selector, address(endpoint), 123);
         vault.multicallByManager(targets, data);
     }
 
@@ -495,8 +494,8 @@ contract RangeProtocolVertexVaultTest is Test {
     //        address[] memory targets = new address[](2);
     //        bytes[] memory data = new bytes[](2);
     //
-    //        targets[0] = address(usdc);
-    //        data[0] = abi.encodeWithSelector(usdc.approve.selector, address(endpoint), 1_000_000);
+    //        targets[0] = address(usdb);
+    //        data[0] = abi.encodeWithSelector(usdb.approve.selector, address(endpoint), 1_000_000);
     //        targets[1] = address(endpoint);
     //        data[1] = vm.envBytes('calldata');
     //        vault.multicallByManager(targets, data);
@@ -506,7 +505,7 @@ contract RangeProtocolVertexVaultTest is Test {
         address[] memory targets = new address[](1);
         bytes[] memory data = new bytes[](1);
         targets[0] = address(0x1);
-        data[0] = abi.encode(usdc.approve.selector);
+        data[0] = abi.encode(usdb.approve.selector);
         vm.expectRevert(VaultErrors.TargetIsNotWhitelisted.selector);
         vault.multicallByManager(targets, data);
     }
@@ -515,31 +514,31 @@ contract RangeProtocolVertexVaultTest is Test {
         address[] memory targets = new address[](1);
         bytes[] memory data = new bytes[](1);
         targets[0] = address(vault.assets(1));
-        data[0] = abi.encodeWithSelector(usdc.approve.selector, address(0x0), 0);
+        data[0] = abi.encodeWithSelector(usdb.approve.selector, address(0x0), 0);
         vm.expectRevert(VaultErrors.InvalidMulticall.selector);
         vault.multicallByManager(targets, data);
 
         targets[0] = address(vault.assets(2));
-        data[0] = abi.encodeWithSelector(usdc.approve.selector, address(0x0), 0);
+        data[0] = abi.encodeWithSelector(usdb.approve.selector, address(0x0), 0);
         vm.expectRevert(VaultErrors.InvalidMulticall.selector);
         vault.multicallByManager(targets, data);
     }
 
-    //    function testActual() external {
-    ////        address[] memory targets = new address[](1);
-    ////        bytes[] memory data = new bytes[](1);
-    ////        targets[0] = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
-    ////        data[0] = abi.encodeWithSignature(
-    ////            "approve(address,uint256)",
-    ////            0xbbEE07B3e8121227AfCFe1E2B82772246226128e,
-    ////            1000000
-    ////        );
-    //////        address[] memory targets = new address[](1);
-    //////        bytes[] memory data = new bytes[](1);
-    //////        targets[0] = address(usdc);
-    //////        data[0] = abi.encodePacked(bytes4(usdc.approve.selector), abi.encode(address(endpoint), uint256(1000000)));
-    //////        console2.logBytes(abi.encodePacked(bytes4(usdc.approve.selector), abi.encode(address(endpoint), uint256(1000000))));
-    ////        vault.multicallByManager(targets, data);
-    ////        address(vault).call(vm.envBytes("data"));
-    //    }
+    function testActual() external {
+        //        address[] memory targets = new address[](1);
+        //        bytes[] memory data = new bytes[](1);
+        //        targets[0] = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+        //        data[0] = abi.encodeWithSignature(
+        //            "approve(address,uint256)",
+        //            0xbbEE07B3e8121227AfCFe1E2B82772246226128e,
+        //            1000000
+        //        );
+        ////        address[] memory targets = new address[](1);
+        ////        bytes[] memory data = new bytes[](1);
+        ////        targets[0] = address(usdb);
+        ////        data[0] = abi.encodePacked(bytes4(usdb.approve.selector), abi.encode(address(endpoint), uint256(1000000)));
+        ////        console2.logBytes(abi.encodePacked(bytes4(usdb.approve.selector), abi.encode(address(endpoint), uint256(1000000))));
+        //        vault.multicallByManager(targets, data);
+        //        address(vault).call(vm.envBytes("data"));
+    }
 }

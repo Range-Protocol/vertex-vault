@@ -22,7 +22,7 @@ import { VaultErrors } from './errors/VaultErrors.sol';
 /**
  * @dev RangeProtocolVertexVault is a vault managed by the vault manager to
  * manage perpetual positions on Vertex protocol. It allows users to deposit
- * {usdc} when opening a vault position and get vault shares that represent
+ * {usdb} when opening a vault position and get vault shares that represent
  * their ownership of the vault. The vault manager is a linked signer of the
  * vault and can manage vault's assets off-chain to open long/short perpetual
  * positions on the vertex protocol.
@@ -30,15 +30,15 @@ import { VaultErrors } from './errors/VaultErrors.sol';
  * The LP ownership of the vault is represented by the fungible ERC20 token minted
  * by the vault to LPs.
  *
- * The vault manager is responsible to maintain a certain ratio of {usdc} in
+ * The vault manager is responsible to maintain a certain ratio of {usdb} in
  * the vault as passive balance, so LPs can burn their vault shares and redeem the
- * underlying {usdc} pro-rata to the amount of shares being burned.
+ * underlying {usdb} pro-rata to the amount of shares being burned.
  *
- * The LPs can burn their vault shares and redeem the underlying vault's {usdc}
+ * The LPs can burn their vault shares and redeem the underlying vault's {usdb}
  * pro-rata to the amount of shares they are burning. The LPs pay managing fee on their
  * final redeemable amount.
  *
- * The LP token's price is based on total holding of the vault in {usdc}.
+ * The LP token's price is based on total holding of the vault in {usdb}.
  *  Holding of vault is calculated as sum of margin deposited, settled balance from
  * earlier perp positions and the PnL from the current opened perp positions.
  *
@@ -61,7 +61,6 @@ contract RangeProtocolVertexVault is
 
     uint256 public constant MAX_MANAGING_FEE = 1000;
     int256 public constant X18_MULTIPLIER = 10 ** 18;
-    uint256 public constant DECIMALS_DIFFERENCE_MULTIPLIER = 10 ** 12;
 
     modifier onlyUpgrader() {
         if (msg.sender != upgrader) revert VaultErrors.OnlyUpgraderAllowed();
@@ -77,7 +76,7 @@ contract RangeProtocolVertexVault is
      * @param _spotEngine address of {spotEngine} contract of Vertex Protocol.
      * @param _perpEngine address of {perpEngine} contract of Vertex Protocol.
      * @param _endpoint address of {endpoint} contract of Vertex Protocol.
-     * @param _usdc address of {usdc} accepted as deposit asset
+     * @param _usdb address of {usdb} accepted as deposit asset
      * by the vault.
      * @param _manager address of vault's manager.
      * @param _name name of vault's ERC20 fungible token.
@@ -88,7 +87,7 @@ contract RangeProtocolVertexVault is
         ISpotEngine _spotEngine,
         IPerpEngine _perpEngine,
         IEndpoint _endpoint,
-        IERC20 _usdc,
+        IERC20 _usdb,
         address _manager,
         string calldata _name,
         string calldata _symbol,
@@ -99,7 +98,7 @@ contract RangeProtocolVertexVault is
     {
         if (
             _perpEngine == IPerpEngine(address(0x0)) || _spotEngine == ISpotEngine(address(0x0))
-                || _endpoint == IEndpoint(address(0x0)) || _usdc == IERC20(address(0x0)) || _manager == address(0x0)
+                || _endpoint == IEndpoint(address(0x0)) || _usdb == IERC20(address(0x0)) || _manager == address(0x0)
         ) revert VaultErrors.ZeroAddress();
 
         __UUPSUpgradeable_init();
@@ -111,7 +110,7 @@ contract RangeProtocolVertexVault is
         spotEngine = _spotEngine;
         perpEngine = _perpEngine;
         endpoint = _endpoint;
-        usdc = _usdc;
+        usdb = _usdb;
         contractSubAccount = bytes32(uint256(uint160(address(this))) << 96);
         _setManagingFee(100); // set 1% as managing fee
         upgrader = _upgrader;
@@ -122,17 +121,17 @@ contract RangeProtocolVertexVault is
         addProduct(3);
         addProduct(4);
 
-        IERC20 wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
-        IERC20 wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+        IERC20 wETH = IERC20(0x4300000000000000000000000000000000000004);
+        IERC20 wBTC = IERC20(0xF7bc58b8D8f97ADC129cfC4c9f45Ce3C0E1D2692);
 
-        // add usdc as asset.
+        // add usdb as asset.
         _addAsset(
-            _usdc,
+            _usdb,
             AssetData({
                 idx: 0,
                 spotId: 0,
                 perpId: 0,
-                priceFeed: AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3),
+                priceFeed: AggregatorV3Interface(0x3A236F67Fce401D87D7215695235e201966576E4),
                 heartbeat: 86_400 + 1800
             })
         );
@@ -144,7 +143,7 @@ contract RangeProtocolVertexVault is
                 idx: 0,
                 spotId: 3,
                 perpId: 4,
-                priceFeed: AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612),
+                priceFeed: AggregatorV3Interface(0x0af23B08bcd8AD35D1e8e8f2D2B779024Bd8D24A),
                 heartbeat: 86_400 + 1800
             })
         );
@@ -156,15 +155,15 @@ contract RangeProtocolVertexVault is
                 idx: 0,
                 spotId: 1,
                 perpId: 2,
-                priceFeed: AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57),
+                priceFeed: AggregatorV3Interface(0x7262c8C5872A4Aa0096A8817cF61f5fa3c537330),
                 heartbeat: 86_400 + 1800
             })
         );
 
-        // whitelist USDC so we could call approve function on the contract in multicallByManager function.
-        whitelistedTargets[address(usdc)] = true;
-        targets.push(address(usdc));
-        emit TargetAddedToWhitelist(address(usdc));
+        // whitelist USDB so we could call approve function on the contract in multicallByManager function.
+        whitelistedTargets[address(usdb)] = true;
+        targets.push(address(usdb));
+        emit TargetAddedToWhitelist(address(usdb));
 
         whitelistedTargets[address(wETH)] = true;
         targets.push(address(wETH));
@@ -181,18 +180,18 @@ contract RangeProtocolVertexVault is
         emit TargetAddedToWhitelist(address(endpoint));
 
         // whitelisting native router, so this router could be called in swap function to perform swap between assets.
-        address nativeRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
-        whitelistedSwapRouters[nativeRouter] = true;
-        swapRouters.push(nativeRouter);
-        emit SwapRouterAddedToWhitelist(nativeRouter);
+        address openOceanRouter = 0x6352a56caadC4F1E25CD6c75970Fa768A3304e64;
+        whitelistedSwapRouters[openOceanRouter] = true;
+        swapRouters.push(openOceanRouter);
+        emit SwapRouterAddedToWhitelist(openOceanRouter);
         swapThreshold = 9995;
 
         _transferOwnership(_manager);
     }
 
     /**
-     * @dev mints vault shares by depositing the {usdc} amount.
-     * @param amount the amount of {usdc} to deposit.
+     * @dev mints vault shares by depositing the {usdb} amount.
+     * @param amount the amount of {usdb} to deposit.
      * @return shares the amount of vault shares minted.
      * requirements
      * - amount to deposit must not be zero.
@@ -213,19 +212,19 @@ contract RangeProtocolVertexVault is
         uint256 totalSupply = totalSupply();
         shares = totalSupply != 0
             ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance())
-            : amount * DECIMALS_DIFFERENCE_MULTIPLIER;
+            : amount;
 
         if (shares < minShares) revert VaultErrors.InvalidSharesAmount();
         _mint(msg.sender, shares);
-        usdc.safeTransferFrom(msg.sender, address(this), amount);
+        usdb.safeTransferFrom(msg.sender, address(this), amount);
         emit Minted(msg.sender, shares, amount);
     }
 
     /**
-     * @dev allows burning of vault {shares} to redeem the underlying the {usdcBalance}.
+     * @dev allows burning of vault {shares} to redeem the underlying the {usdbBalance}.
      * @param shares the amount of shares to be burned by the user.
      * @param minAmount minimum amount to get from the user.
-     * @return amount the amount of underlying {usdc} to be redeemed by the user.
+     * @return amount the amount of underlying {usdb} to be redeemed by the user.
      * requirements
      * - shares to redeem must not be zero.
      * - pending balance must not be zero i.e. there are no funds in transit from vault to vertex.
@@ -251,8 +250,8 @@ contract RangeProtocolVertexVault is
         amount = _netManagingFee(amount);
 
         if (amount < minAmount) revert VaultErrors.AmountIsLessThanMinAmount();
-        if (usdc.balanceOf(address(this)) < amount) revert VaultErrors.NotEnoughBalanceInVault();
-        usdc.safeTransfer(msg.sender, amount);
+        if (usdb.balanceOf(address(this)) < amount) revert VaultErrors.NotEnoughBalanceInVault();
+        usdb.safeTransfer(msg.sender, amount);
         emit Burned(msg.sender, shares, amount);
     }
 
@@ -322,7 +321,7 @@ contract RangeProtocolVertexVault is
      * - only manager can call this function.
      * - the length of targets and data must be same and not zero.
      * - the target must be a whitelisted address.
-     * - if the target is {usdc} then only approve call is allows with approval to endpoint contract.
+     * - if the target is {usdb} then only approve call is allows with approval to endpoint contract.
      */
     function multicallByManager(address[] calldata targets, bytes[] calldata data) external override onlyManager {
         if (targets.length == 0 || targets.length != data.length) revert VaultErrors.InvalidLength();
@@ -391,7 +390,7 @@ contract RangeProtocolVertexVault is
     function collectManagerFee() external override onlyManager {
         uint256 _managerBalance = managerBalance;
         managerBalance = 0;
-        usdc.transfer(msg.sender, _managerBalance);
+        usdb.transfer(msg.sender, _managerBalance);
     }
 
     /**
@@ -543,12 +542,12 @@ contract RangeProtocolVertexVault is
     }
 
     /**
-     * @dev getMintAmount returns the amount of vault shares user gets upon depositing the {depositAmount} of usdc.
-     * @param depositAmount the amount of usdc to deposit.
+     * @dev getMintAmount returns the amount of vault shares user gets upon depositing the {depositAmount} of usdb.
+     * @param depositAmount the amount of usdb to deposit.
      */
     function getMintAmount(uint256 depositAmount) external view override returns (uint256) {
         uint256 _totalSupply = totalSupply();
-        if (_totalSupply == 0) return depositAmount * DECIMALS_DIFFERENCE_MULTIPLIER;
+        if (_totalSupply == 0) return depositAmount;
         return FullMath.mulDivRoundingUp(depositAmount, totalSupply(), getUnderlyingBalance());
     }
 
@@ -569,14 +568,14 @@ contract RangeProtocolVertexVault is
     }
 
     /**
-     * @dev returns underlying vault holding in {usdc}. The vault holding represents passive USDC, wBTC and wETH in the vault
+     * @dev returns underlying vault holding in {usdb}. The vault holding represents passive USDB, wBTC and wETH in the vault
      * along with any PnL from the whitelisted perp products on the Vertex protocol.
-     * @return vaultBalance the total holding of the vault in USDC.
+     * @return vaultBalance the total holding of the vault in USDB.
      */
     function getUnderlyingBalance() public view override returns (uint256 vaultBalance) {
-        uint256 usdcPrice = uint256(getPriceFromOracle(usdc));
-        uint256 usdcDecimalsMultiplier = 10 ** IERC20Metadata(address(usdc)).decimals();
-        uint256 usdcPriceFeedDecimalsMultiplier = 10 ** assetsData[usdc].priceFeed.decimals();
+        uint256 usdbPrice = uint256(getPriceFromOracle(usdb));
+        uint256 usdbDecimalsMultiplier = 10 ** IERC20Metadata(address(usdb)).decimals();
+        uint256 usdbPriceFeedDecimalsMultiplier = 10 ** assetsData[usdb].priceFeed.decimals();
 
         uint256[] memory _productIds = productIds;
         uint256[] memory pendingBalances = getPendingBalances();
@@ -585,7 +584,7 @@ contract RangeProtocolVertexVault is
             uint32 productId = uint32(_productIds[i]);
             // only compute perps pnl balances.
             if (productId % 2 == 0 && productId != 0) {
-                signedBalance += _perpPnLByProductId(productId, usdcDecimalsMultiplier);
+                signedBalance += _perpPnLByProductId(productId, usdbDecimalsMultiplier);
             } else {
                 IERC20Metadata asset = IERC20Metadata(address(spotIdToAsset[productId]));
                 uint256 assetDecimalsMultiplier = 10 ** asset.decimals();
@@ -593,13 +592,13 @@ contract RangeProtocolVertexVault is
                     + int256(pendingBalances[assetsData[asset].idx]) + int256(asset.balanceOf(address(this)));
 
                 if (productId != 0) {
-                    amountToAdd = getAssetAmountInUsdc(
+                    amountToAdd = getAssetAmountInUsdb(
                         asset,
                         amountToAdd,
                         assetDecimalsMultiplier,
-                        usdcPrice,
-                        usdcDecimalsMultiplier,
-                        usdcPriceFeedDecimalsMultiplier
+                        usdbPrice,
+                        usdbDecimalsMultiplier,
+                        usdbPriceFeedDecimalsMultiplier
                     );
                 }
 
@@ -616,29 +615,29 @@ contract RangeProtocolVertexVault is
     }
 
     /**
-     * @dev returns the asset's (wETH or wBTC) amount in usdc.
+     * @dev returns the asset's (wETH or wBTC) amount in usdb.
      * @param asset the address of the asset.
-     * @param usdcPrice the price of usdc (passed as param for caching purpose)
-     * @param usdcDecimalsMultiplier the decimals multiplier for usdc (passed as param for caching purpose)
-     * @return the asset holding of the vault in usdc.
+     * @param usdbPrice the price of usdb (passed as param for caching purpose)
+     * @param usdbDecimalsMultiplier the decimals multiplier for usdb (passed as param for caching purpose)
+     * @return the asset holding of the vault in usdb.
      */
-    function getAssetAmountInUsdc(
+    function getAssetAmountInUsdb(
         IERC20Metadata asset,
         int256 amount,
         uint256 assetDecimalsMultiplier,
-        uint256 usdcPrice,
-        uint256 usdcDecimalsMultiplier,
-        uint256 usdcPriceFeedDecimalsMultiplier
+        uint256 usdbPrice,
+        uint256 usdbDecimalsMultiplier,
+        uint256 usdbPriceFeedDecimalsMultiplier
     )
         public
         view
         returns (int256)
     {
-        uint256 amountInUsdc = uint256(amount > 0 ? amount : -amount) * uint256(getPriceFromOracle(asset))
-            * usdcDecimalsMultiplier * usdcPriceFeedDecimalsMultiplier / 10 ** assetsData[asset].priceFeed.decimals()
-            / assetDecimalsMultiplier / usdcPrice;
+        uint256 amountInUsdb = uint256(amount > 0 ? amount : -amount) * uint256(getPriceFromOracle(asset))
+            * usdbDecimalsMultiplier * usdbPriceFeedDecimalsMultiplier / 10 ** assetsData[asset].priceFeed.decimals()
+            / assetDecimalsMultiplier / usdbPrice;
 
-        return amount < 0 ? -int256(amountInUsdc) : int256(amountInUsdc);
+        return amount < 0 ? -int256(amountInUsdb) : int256(amountInUsdb);
     }
 
     /**
@@ -692,8 +691,8 @@ contract RangeProtocolVertexVault is
             / X18_MULTIPLIER;
     }
 
-    function _perpPnLByProductId(uint32 productId, uint256 usdcDecimalsMultiplier) private view returns (int256) {
-        return int256(perpEngine.getPositionPnl(productId, contractSubAccount)) * int256(usdcDecimalsMultiplier)
+    function _perpPnLByProductId(uint32 productId, uint256 usdbDecimalsMultiplier) private view returns (int256) {
+        return int256(perpEngine.getPositionPnl(productId, contractSubAccount)) * int256(usdbDecimalsMultiplier)
             / X18_MULTIPLIER;
     }
 
@@ -711,7 +710,7 @@ contract RangeProtocolVertexVault is
 
     /**
      * @dev subtracts managing fee from the redeemable {amount}.
-     * @return amountAfterFee the {usdc} amount redeemable after
+     * @return amountAfterFee the {usdb} amount redeemable after
      * the managing fee is deducted.
      */
     function _netManagingFee(uint256 amount) private view returns (uint256 amountAfterFee) {

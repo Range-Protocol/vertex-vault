@@ -9,7 +9,7 @@ import { ISpotEngine } from './interfaces/vertex/ISpotEngine.sol';
 
 abstract contract RangeProtocolVertexVaultStorage is IRangeProtocolVertexVault {
     bytes32 public contractSubAccount;
-    IERC20 public usdc;
+    IERC20 public usdb;
     uint256[] public productIds;
     mapping(uint256 productId => bool whitelisted) public isWhiteListedProduct;
     IEndpoint public endpoint;
