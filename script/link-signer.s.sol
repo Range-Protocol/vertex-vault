@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import { Script, console2 } from 'forge-std/Script.sol';
 
 import { ERC1967Proxy } from '@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol';
-import { RangeProtocolVertexVault } from '../src/RangeProtocolVertexVault.sol';
+import { SkateVertexVault } from '../src/SkateVertexVault.sol';
 import { ISpotEngine } from '../src/interfaces/vertex/ISpotEngine.sol';
 import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
 import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
@@ -27,16 +27,16 @@ contract linkSigner is Script {
     IPerpEngine perpEngine = IPerpEngine(0xb74C78cca0FADAFBeE52B2f48A67eE8c834b5fd1);
     IEndpoint endpoint = IEndpoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
     ERC20 usdc = ERC20(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
-    address externalAccount = 0x5b1c179F201B629E9b8F20cF66f617D151D53886;
-    address contractAccount = 0xAeC565391155C80AdEb9e26E426621aA78aA0744;
+    address externalAccount = 0x3f132Af5eA90C71ed5DE495962426b8f1B47A511;
+    address contractAccount = 0x849Dd9D48337D1884C3bE140ba27CBe63B81d7be;
 
-    RangeProtocolVertexVault vault = RangeProtocolVertexVault(0xAeC565391155C80AdEb9e26E426621aA78aA0744);
+    SkateVertexVault vault = SkateVertexVault(contractAccount);
 
     function run() external {
         uint256 pk = vm.envUint('PK');
         vm.startBroadcast(pk);
 
-        //        usdc.transfer(address(vault), 1e6);
+        usdc.transfer(address(vault), 1e6);
         address[] memory targets = new address[](2);
         bytes[] memory data = new bytes[](2);
 

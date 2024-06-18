@@ -4,8 +4,8 @@ pragma solidity 0.8.20;
 import { Test, console2 } from 'forge-std/Test.sol';
 import { IERC20 } from '@openzeppelin/contracts/interfaces/IERC20.sol';
 
-import { RangeProtocolVertexVault } from '../src/RangeProtocolVertexVault.sol';
-import { IRangeProtocolVertexVault } from '../src/interfaces/IRangeProtocolVertexVault.sol';
+import { SkateVertexVault } from '../src/SkateVertexVault.sol';
+import { ISkateVertexVault } from '../src/interfaces/ISkateVertexVault.sol';
 import { ISpotEngine } from '../src/interfaces/vertex/ISpotEngine.sol';
 import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
 import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
@@ -16,7 +16,7 @@ import { ERC1967Proxy } from
     'openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol';
 import { AggregatorV3Interface } from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
 
-contract RangeProtocolVertexVaultTest is Test {
+contract SkateProtocolVertexVaultTest is Test {
     event Minted(address user, uint256 shares, uint256 amount);
     event Burned(address user, uint256 shares, uint256 amount);
     event ProductAdded(uint256 product);
@@ -35,7 +35,7 @@ contract RangeProtocolVertexVaultTest is Test {
     IERC20 wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     IERC20 wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
 
-    RangeProtocolVertexVault vault;
+    SkateVertexVault vault;
     address manager = 0x38E292E52302351aAdf5Ef51D4d3bb30bD355b25;
     address upgrader = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
     //    address swapRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
@@ -46,8 +46,8 @@ contract RangeProtocolVertexVaultTest is Test {
         vm.prank(0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D);
         usdc.transfer(manager, 100_000 * 10 ** 6);
 
-        address vaultImpl = address(new RangeProtocolVertexVault());
-        vault = RangeProtocolVertexVault(
+        address vaultImpl = address(new SkateVertexVault());
+        vault = SkateVertexVault(
             address(
                 new ERC1967Proxy(
                     vaultImpl,
@@ -58,8 +58,8 @@ contract RangeProtocolVertexVaultTest is Test {
                         address(endpoint),
                         address(usdc),
                         manager,
-                        'Vertex Test Vault',
-                        'VTX',
+                        'Skate Vertex Liquidity Vault (Majors)',
+                        'SK-LP',
                         upgrader
                     )
                 )
@@ -70,14 +70,14 @@ contract RangeProtocolVertexVaultTest is Test {
     }
 
     function testDeployment() external {
-        IRangeProtocolVertexVault.AssetData[] memory assetsDataList = new IRangeProtocolVertexVault.AssetData[](3);
-        assetsDataList[0] = IRangeProtocolVertexVault.AssetData(
+        ISkateVertexVault.AssetData[] memory assetsDataList = new ISkateVertexVault.AssetData[](3);
+        assetsDataList[0] = ISkateVertexVault.AssetData(
             0, 0, 0, AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3), 86_400 + 1800
         );
-        assetsDataList[1] = IRangeProtocolVertexVault.AssetData(
+        assetsDataList[1] = ISkateVertexVault.AssetData(
             1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
         );
-        assetsDataList[2] = IRangeProtocolVertexVault.AssetData(
+        assetsDataList[2] = ISkateVertexVault.AssetData(
             2, 1, 2, AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57), 86_400 + 1800
         );
         IERC20[] memory assets = vault.assetsList();
@@ -130,7 +130,7 @@ contract RangeProtocolVertexVaultTest is Test {
         vm.expectRevert(VaultErrors.OnlyUpgraderAllowed.selector);
         vault.addAsset(
             wETH,
-            IRangeProtocolVertexVault.AssetData(
+            ISkateVertexVault.AssetData(
                 1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
             )
         );
@@ -150,7 +150,7 @@ contract RangeProtocolVertexVaultTest is Test {
         emit AssetAdded(wETH);
         vault.addAsset(
             wETH,
-            IRangeProtocolVertexVault.AssetData(
+            ISkateVertexVault.AssetData(
                 1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
             )
         );
@@ -162,7 +162,7 @@ contract RangeProtocolVertexVaultTest is Test {
         vm.expectRevert(VaultErrors.AssetAlreadyAdded.selector);
         vault.addAsset(
             wETH,
-            IRangeProtocolVertexVault.AssetData(
+            ISkateVertexVault.AssetData(
                 1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
             )
         );
