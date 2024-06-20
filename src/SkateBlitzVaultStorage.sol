@@ -2,12 +2,12 @@
 pragma solidity 0.8.20;
 
 import { IERC20 } from '@openzeppelin/contracts/interfaces/IERC20.sol';
-import { IRangeProtocolVertexVault } from './interfaces/IRangeProtocolVertexVault.sol';
+import { ISkateBlitzVault } from './interfaces/ISkateBlitzVault.sol';
 import { IEndpoint } from './interfaces/vertex/IEndpoint.sol';
 import { IPerpEngine } from './interfaces/vertex/IPerpEngine.sol';
 import { ISpotEngine } from './interfaces/vertex/ISpotEngine.sol';
 
-abstract contract RangeProtocolVertexVaultStorage is IRangeProtocolVertexVault {
+abstract contract SkateBlitzVaultStorage is ISkateBlitzVault {
     bytes32 public contractSubAccount;
     IERC20 public usdb;
     uint256[] public productIds;

@@ -2,9 +2,10 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+evm_version = "shanghai"
 
 [rpc_endpoints]
-arbitrum = "https://1rpc.io/arb"
+blast = "https://rpc.envelop.is/blast"
 
 [fmt]
 int_types = "long"

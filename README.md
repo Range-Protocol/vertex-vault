@@ -29,7 +29,7 @@ $ forge test
 
 ### Verify Contract
 ```shell
-$ forge verify-contract 0x61366f5461BD66f7eC30954D901213c622513700 RangeProtocolVertexVault --watch --verifier-url https://api.arbiscan.io/api
+$ forge verify-contract 0x61366f5461BD66f7eC30954D901213c622513700 SkateBlitzVault.sol --watch --verifier-url https://api.arbiscan.io/api
 ```
 
 ### Format

@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import { Script, console2 } from 'forge-std/Script.sol';
 
 import { ERC1967Proxy } from '@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol';
-import { RangeProtocolVertexVault } from '../src/RangeProtocolVertexVault.sol';
+import { SkateBlitzVault } from '../src/SkateBlitzVault.sol';
 import { ISpotEngine } from '../src/interfaces/vertex/ISpotEngine.sol';
 import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
 import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
@@ -23,24 +23,24 @@ contract linkSigner is Script {
         bytes tx;
     }
 
-    ISpotEngine spotEngine = ISpotEngine(0x32d91Af2B17054D575A7bF1ACfa7615f41CCEfaB);
-    IPerpEngine perpEngine = IPerpEngine(0xb74C78cca0FADAFBeE52B2f48A67eE8c834b5fd1);
-    IEndpoint endpoint = IEndpoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
-    ERC20 usdc = ERC20(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
-    address externalAccount = 0x5b1c179F201B629E9b8F20cF66f617D151D53886;
-    address contractAccount = 0xAeC565391155C80AdEb9e26E426621aA78aA0744;
+    ISpotEngine spotEngine = ISpotEngine(0x57c1AB256403532d02D1150C5790423967B22Bf2);
+    IPerpEngine perpEngine = IPerpEngine(0x0bc0c84976e21aaF7bE71d318eD93A5f5c9978A4);
+    IEndpoint endpoint = IEndpoint(0x00F076FE36f2341A1054B16ae05FcE0C65180DeD);
+    ERC20 usdb = ERC20(0x4300000000000000000000000000000000000003);
+    address externalAccount = 0x3f132Af5eA90C71ed5DE495962426b8f1B47A511;
+    address contractAccount = 0x4C6da96359884b8d485DA1cE49153aC86F1Ddd30;
 
-    RangeProtocolVertexVault vault = RangeProtocolVertexVault(0xAeC565391155C80AdEb9e26E426621aA78aA0744);
+    SkateBlitzVault vault = SkateBlitzVault(contractAccount);
 
     function run() external {
         uint256 pk = vm.envUint('PK');
         vm.startBroadcast(pk);
 
-        //        usdc.transfer(address(vault), 1e6);
+        usdb.transfer(address(vault), 1e6);
         address[] memory targets = new address[](2);
         bytes[] memory data = new bytes[](2);
 
-        targets[0] = address(usdc);
+        targets[0] = address(usdb);
         data[0] = abi.encodeCall(ERC20.approve, (address(endpoint), 1e6));
 
         targets[1] = address(endpoint);

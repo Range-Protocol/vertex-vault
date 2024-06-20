@@ -12,7 +12,7 @@ import { IERC20 } from '@openzeppelin/contracts/interfaces/IERC20.sol';
 import { SafeERC20 } from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import { OwnableUpgradeable } from './access/OwnableUpgradeable.sol';
 import { AggregatorV3Interface } from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
-import { RangeProtocolVertexVaultStorage } from './RangeProtocolVertexVaultStorage.sol';
+import { SkateBlitzVaultStorage } from './SkateBlitzVaultStorage.sol';
 import { FullMath } from './libraries/FullMath.sol';
 import { IPerpEngine } from './interfaces/vertex/IPerpEngine.sol';
 import { ISpotEngine } from './interfaces/vertex/ISpotEngine.sol';
@@ -20,7 +20,7 @@ import { IEndpoint } from './interfaces/vertex/IEndpoint.sol';
 import { VaultErrors } from './errors/VaultErrors.sol';
 
 /**
- * @dev RangeProtocolVertexVault is a vault managed by the vault manager to
+ * @dev SkateBlitzVault.sol is a vault managed by the vault manager to
  * manage perpetual positions on Vertex protocol. It allows users to deposit
  * {usdb} when opening a vault position and get vault shares that represent
  * their ownership of the vault. The vault manager is a linked signer of the
@@ -47,14 +47,14 @@ import { VaultErrors } from './errors/VaultErrors.sol';
  *
  * Manager can add or remove (whitelist) the vertex-supported products in vault.
  */
-contract RangeProtocolVertexVault is
+contract SkateBlitzVault is
     Initializable,
     UUPSUpgradeable,
     ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
     ERC20Upgradeable,
     PausableUpgradeable,
-    RangeProtocolVertexVaultStorage
+    SkateBlitzVaultStorage
 {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -210,9 +210,7 @@ contract RangeProtocolVertexVault is
     {
         if (amount == 0) revert VaultErrors.ZeroDepositAmount();
         uint256 totalSupply = totalSupply();
-        shares = totalSupply != 0
-            ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance())
-            : amount;
+        shares = totalSupply != 0 ? FullMath.mulDivRoundingUp(amount, totalSupply, getUnderlyingBalance()) : amount;
 
         if (shares < minShares) revert VaultErrors.InvalidSharesAmount();
         _mint(msg.sender, shares);
