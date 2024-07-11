@@ -13,6 +13,8 @@ import { SafeERC20 } from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { OwnableUpgradeable } from './access/OwnableUpgradeable.sol';
 import { AggregatorV3Interface } from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
 import { SkateBlitzVaultStorage } from './SkateBlitzVaultStorage.sol';
+import { IBlast } from './interfaces/blast/IBlast.sol';
+import { IBlastPoints } from './interfaces/blast/IBlastPoints.sol';
 import { FullMath } from './libraries/FullMath.sol';
 import { IPerpEngine } from './interfaces/vertex/IPerpEngine.sol';
 import { ISpotEngine } from './interfaces/vertex/ISpotEngine.sol';
@@ -69,6 +71,10 @@ contract SkateBlitzVault is
 
     constructor() {
         _disableInitializers();
+    }
+
+    function name() public pure override returns (string memory) {
+        return 'SkateFi Blitz Liquidity Vault (Majors)';
     }
 
     /**
@@ -187,6 +193,17 @@ contract SkateBlitzVault is
         swapThreshold = 9995;
 
         _transferOwnership(_manager);
+    }
+
+    function reinit() external {
+        IBlast(0x4300000000000000000000000000000000000002).configureClaimableGas();
+        IBlastPoints(0x2536FE9ab3F511540F2f9e2eC2A805005C3Dd800).configurePointsOperator(
+            0xb9b477D3012659eeD0a55A6916C179401FcF4C9E
+        );
+    }
+
+    function claimAllGas(address recipient) external override onlyManager {
+        IBlast(0x4300000000000000000000000000000000000002).claimAllGas(address(this), recipient);
     }
 
     /**

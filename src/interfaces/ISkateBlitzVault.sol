@@ -43,6 +43,7 @@ interface ISkateBlitzVault is IERC20 {
     function collectManagerFee() external;
     function addAsset(IERC20 asset, AssetData memory assetData) external;
     function removeAsset(IERC20 asset) external;
+    function claimAllGas(address recipient) external;
 
     function getMintAmount(uint256 depositAmount) external view returns (uint256);
     function getUnderlyingBalance() external view returns (uint256);
