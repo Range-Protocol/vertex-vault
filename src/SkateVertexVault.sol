@@ -117,13 +117,15 @@ contract SkateVertexVault is
         upgrader = _upgrader;
 
         addProduct(0);
-        addProduct(1);
         addProduct(2);
-        addProduct(3);
         addProduct(4);
+        addProduct(93);
 
-        IERC20 wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
-        IERC20 wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+        // internal spot id for btc spot position as passive balance in the vault
+        addProduct(10_001);
+
+        IERC20 wETH = IERC20(0xdEAddEaDdeadDEadDEADDEAddEADDEAddead1111);
+        IERC20 wBTC = IERC20(0xCAbAE6f6Ea1ecaB08Ad02fE02ce9A44F09aebfA2);
 
         // add usdc as asset.
         _addAsset(
@@ -132,7 +134,7 @@ contract SkateVertexVault is
                 idx: 0,
                 spotId: 0,
                 perpId: 0,
-                priceFeed: AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3),
+                priceFeed: AggregatorV3Interface(0x1bB8f2dF000553E5Af2AEd5c42FEd3a73cd5144b),
                 heartbeat: 86_400 + 1800
             })
         );
@@ -142,9 +144,9 @@ contract SkateVertexVault is
             wETH,
             AssetData({
                 idx: 0,
-                spotId: 3,
+                spotId: 93,
                 perpId: 4,
-                priceFeed: AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612),
+                priceFeed: AggregatorV3Interface(0xFc34806fbD673c21c1AEC26d69AA247F1e69a2C6),
                 heartbeat: 86_400 + 1800
             })
         );
@@ -154,9 +156,9 @@ contract SkateVertexVault is
             wBTC,
             AssetData({
                 idx: 0,
-                spotId: 1,
+                spotId: 10_001, // 10001 is the SkateFi's internal spot id for BTC which is not used on vertex
                 perpId: 2,
-                priceFeed: AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57),
+                priceFeed: AggregatorV3Interface(0x76A495b0bFfb53ef3F0E94ef0763e03cE410835C),
                 heartbeat: 86_400 + 1800
             })
         );
@@ -181,7 +183,7 @@ contract SkateVertexVault is
         emit TargetAddedToWhitelist(address(endpoint));
 
         // whitelisting native router, so this router could be called in swap function to perform swap between assets.
-        address nativeRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
+        address nativeRouter = 0xc6f7a7ba5388bFB5774bFAa87D350b7793FD9ef1;
         whitelistedSwapRouters[nativeRouter] = true;
         swapRouters.push(nativeRouter);
         emit SwapRouterAddedToWhitelist(nativeRouter);

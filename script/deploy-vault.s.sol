@@ -10,10 +10,10 @@ import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
 import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
 
 contract deployVault is Script {
-    ISpotEngine spotEngine = ISpotEngine(0x32d91Af2B17054D575A7bF1ACfa7615f41CCEfaB);
-    IPerpEngine perpEngine = IPerpEngine(0xb74C78cca0FADAFBeE52B2f48A67eE8c834b5fd1);
-    IEndpoint endpoint = IEndpoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
-    address USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    ISpotEngine spotEngine = ISpotEngine(0xb64d2d606DC23D7a055B770e192631f5c8e1d9f8);
+    IPerpEngine perpEngine = IPerpEngine(0x38080ee5fb939d045A9e533dF355e85Ff4f7e13D);
+    IEndpoint endpoint = IEndpoint(0x526D7C7ea3677efF28CB5bA457f9d341F297Fd52);
+    address USDC = 0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9;
     address manager = 0x3f132Af5eA90C71ed5DE495962426b8f1B47A511;
     address upgrader = 0xBBE307DB73D8fD981A7dAB929E2a41225CF0658A;
 
@@ -21,13 +21,13 @@ contract deployVault is Script {
         uint256 pk = vm.envUint('PK');
         vm.startBroadcast(pk);
 
-        //        address implementation = address(new SkateVertexVault());
-        //        console2.log('Implementation: ', implementation);
+        address implementation = address(new SkateVertexVault());
+        console2.log('Implementation: ', implementation);
 
         SkateVertexVault vault = SkateVertexVault(
             address(
                 new ERC1967Proxy(
-                    0x5b1E52775BA84dee714f46f5a67a5b4f6D452287,
+                    implementation,
                     abi.encodeWithSignature(
                         'initialize(address,address,address,address,address,string,string,address)',
                         address(spotEngine),
@@ -35,7 +35,7 @@ contract deployVault is Script {
                         address(endpoint),
                         USDC,
                         manager,
-                        'Skate Vertex Liquidity Vault (Alts)',
+                        'Skate Blitz Liquidity Vault (Majors)',
                         'SK-LP',
                         upgrader
                     )

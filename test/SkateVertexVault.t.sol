@@ -16,7 +16,7 @@ import { ERC1967Proxy } from
     'openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol';
 import { AggregatorV3Interface } from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
 
-contract SkateProtocolVertexVaultTest is Test {
+contract SkateVertexVaultTest is Test {
     event Minted(address user, uint256 shares, uint256 amount);
     event Burned(address user, uint256 shares, uint256 amount);
     event ProductAdded(uint256 product);
@@ -28,22 +28,22 @@ contract SkateProtocolVertexVaultTest is Test {
     error FailedInnerCall();
     error EnforcedPause();
 
-    ISpotEngine spotEngine = ISpotEngine(0x32d91Af2B17054D575A7bF1ACfa7615f41CCEfaB);
-    IPerpEngine perpEngine = IPerpEngine(0xb74C78cca0FADAFBeE52B2f48A67eE8c834b5fd1);
-    IEndpoint endpoint = IEndpoint(0xbbEE07B3e8121227AfCFe1E2B82772246226128e);
-    IUSDC usdc = IUSDC(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
-    IERC20 wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
-    IERC20 wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+    ISpotEngine spotEngine = ISpotEngine(0xb64d2d606DC23D7a055B770e192631f5c8e1d9f8);
+    IPerpEngine perpEngine = IPerpEngine(0x38080ee5fb939d045A9e533dF355e85Ff4f7e13D);
+    IEndpoint endpoint = IEndpoint(0x526D7C7ea3677efF28CB5bA457f9d341F297Fd52);
+    IUSDC usdc = IUSDC(0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9);
+    IERC20 wETH = IERC20(0xdEAddEaDdeadDEadDEADDEAddEADDEAddead1111);
+    IERC20 wBTC = IERC20(0xCAbAE6f6Ea1ecaB08Ad02fE02ce9A44F09aebfA2);
 
     SkateVertexVault vault;
     address manager = 0x38E292E52302351aAdf5Ef51D4d3bb30bD355b25;
-    address upgrader = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+    address upgrader = 0xCAbAE6f6Ea1ecaB08Ad02fE02ce9A44F09aebfA2;
     //    address swapRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
 
     function setUp() external {
-        uint256 fork = vm.createFork(vm.rpcUrl('arbitrum'));
+        uint256 fork = vm.createFork(vm.rpcUrl('mantle'));
         vm.selectFork(fork);
-        vm.prank(0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D);
+        vm.prank(0x588846213A30fd36244e0ae0eBB2374516dA836C);
         usdc.transfer(manager, 100_000 * 10 ** 6);
 
         address vaultImpl = address(new SkateVertexVault());
@@ -58,8 +58,8 @@ contract SkateProtocolVertexVaultTest is Test {
                         address(endpoint),
                         address(usdc),
                         manager,
-                        'Skate Vertex Liquidity Vault (Majors)',
-                        'SK-LP',
+                        'Vertex Test Vault',
+                        'VTX',
                         upgrader
                     )
                 )
@@ -72,13 +72,13 @@ contract SkateProtocolVertexVaultTest is Test {
     function testDeployment() external {
         ISkateVertexVault.AssetData[] memory assetsDataList = new ISkateVertexVault.AssetData[](3);
         assetsDataList[0] = ISkateVertexVault.AssetData(
-            0, 0, 0, AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3), 86_400 + 1800
+            0, 0, 0, AggregatorV3Interface(0x1bB8f2dF000553E5Af2AEd5c42FEd3a73cd5144b), 86_400 + 1800
         );
         assetsDataList[1] = ISkateVertexVault.AssetData(
-            1, 3, 4, AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612), 86_400 + 1800
+            1, 93, 4, AggregatorV3Interface(0xFc34806fbD673c21c1AEC26d69AA247F1e69a2C6), 86_400 + 1800
         );
         assetsDataList[2] = ISkateVertexVault.AssetData(
-            2, 1, 2, AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57), 86_400 + 1800
+            2, 10_001, 2, AggregatorV3Interface(0x76A495b0bFfb53ef3F0E94ef0763e03cE410835C), 86_400 + 1800
         );
         IERC20[] memory assets = vault.assetsList();
         for (uint256 i = 0; i < assets.length; i++) {
@@ -96,8 +96,8 @@ contract SkateProtocolVertexVaultTest is Test {
         assertEq(vault.targets(0), address(usdc));
         assertEq(vault.whitelistedTargets(address(endpoint)), true);
         assertEq(vault.targets(3), address(endpoint));
-        assertEq(vault.whitelistedSwapRouters(address(0xEAd050515E10fDB3540ccD6f8236C46790508A76)), true);
-        assertEq(vault.swapRouters(0), address(0xEAd050515E10fDB3540ccD6f8236C46790508A76));
+        assertEq(vault.whitelistedSwapRouters(address(0xc6f7a7ba5388bFB5774bFAa87D350b7793FD9ef1)), true);
+        assertEq(vault.swapRouters(0), address(0xc6f7a7ba5388bFB5774bFAa87D350b7793FD9ef1));
         assertEq(vault.swapThreshold(), 9995);
     }
 
@@ -108,7 +108,7 @@ contract SkateProtocolVertexVaultTest is Test {
 
     function testRemoveAsset() external {
         (uint256 idx, uint256 spotId,,,) = vault.assetsData(wETH);
-        assertEq(spotId, 3);
+        assertEq(spotId, 93);
         assertEq(address(vault.assets(idx)), address(wETH));
         assertEq(address(vault.spotIdToAsset(spotId)), address(wETH));
 
