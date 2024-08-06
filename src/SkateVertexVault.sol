@@ -10,6 +10,7 @@ import { Address } from '@openzeppelin/contracts/utils/Address.sol';
 import { IERC20Metadata } from '@openzeppelin/contracts/interfaces/IERC20Metadata.sol';
 import { IERC20 } from '@openzeppelin/contracts/interfaces/IERC20.sol';
 import { SafeERC20 } from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import { MerkleProof } from '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
 import { OwnableUpgradeable } from './access/OwnableUpgradeable.sol';
 import { AggregatorV3Interface } from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
 import { SkateVertexVaultStorage } from './SkateVertexVaultStorage.sol';
@@ -190,6 +191,11 @@ contract SkateVertexVault is
         _transferOwnership(_manager);
     }
 
+    function reinit() external {
+        incentivesData.arb = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+        incentivesData.vrtx = 0x95146881b86B3ee99e63705eC87AfE29Fcc044D9;
+    }
+
     /**
      * @dev mints vault shares by depositing the {usdc} amount.
      * @param amount the amount of {usdc} to deposit.
@@ -254,6 +260,29 @@ contract SkateVertexVault is
         if (usdc.balanceOf(address(this)) < amount) revert VaultErrors.NotEnoughBalanceInVault();
         usdc.safeTransfer(msg.sender, amount);
         emit Burned(msg.sender, shares, amount);
+    }
+
+    function claim(address token, address user, uint256 amount, bytes32[] memory merkleProof) external override {
+        if (token != incentivesData.arb && token != incentivesData.vrtx) revert VaultErrors.InvalidRewardToken();
+
+        bytes32 root;
+        uint256 toTransfer;
+        if (token == incentivesData.arb) {
+            toTransfer = amount - incentivesData.arbClaimedAmounts[user];
+            incentivesData.arbClaimedAmounts[user] = amount;
+            root = incentivesData.arbMerkleRoot;
+        } else {
+            toTransfer = amount - incentivesData.vrtxClaimedAmounts[user];
+            incentivesData.vrtxClaimedAmounts[user] = amount;
+            root = incentivesData.vrtxMerkleRoot;
+        }
+        if (!MerkleProof.verify(merkleProof, root, keccak256(abi.encodePacked(token, user, amount)))) {
+            revert VaultErrors.InvalidProof();
+        }
+        if (toTransfer != 0) {
+            IERC20(token).safeTransfer(user, toTransfer);
+            emit Claimed(user, toTransfer);
+        }
     }
 
     /**
@@ -542,6 +571,13 @@ contract SkateVertexVault is
         _removeAsset(asset);
     }
 
+    function setMerkleRoots(bytes32 _arbMerkleRoot, bytes32 _vrtxMerkleRoot) external override onlyManager {
+        incentivesData.arbMerkleRoot = _arbMerkleRoot;
+        incentivesData.vrtxMerkleRoot = _vrtxMerkleRoot;
+
+        emit MerkleRootsSet(_arbMerkleRoot, _vrtxMerkleRoot);
+    }
+
     /**
      * @dev getMintAmount returns the amount of vault shares user gets upon depositing the {depositAmount} of usdc.
      * @param depositAmount the amount of usdc to deposit.
@@ -678,6 +714,22 @@ contract SkateVertexVault is
 
     function assetsList() external view override returns (IERC20[] memory) {
         return assets;
+    }
+
+    function arbMerkleRoot() external view override returns (bytes32) {
+        return incentivesData.arbMerkleRoot;
+    }
+
+    function vrtxMerkleRoot() external view override returns (bytes32) {
+        return incentivesData.vrtxMerkleRoot;
+    }
+
+    function arbClaimedAmounts(address user) external view override returns (uint256) {
+        return incentivesData.arbClaimedAmounts[user];
+    }
+
+    function vrtxClaimedAmounts(address user) external view override returns (uint256) {
+        return incentivesData.vrtxClaimedAmounts[user];
     }
 
     /**
