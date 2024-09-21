@@ -26,5 +26,13 @@ abstract contract SkateVertexVaultStorage is ISkateVertexVault {
     IERC20[] public assets;
     mapping(IERC20 asset => AssetData) public assetsData;
     mapping(uint256 spotId => IERC20 asset) public spotIdToAsset;
+
+    struct IncentivesData {
+        address wmnt;
+        bytes32 wmntMerkleRoot;
+        mapping(address => uint256) wmntClaimedAmounts;
+    }
+
+    IncentivesData public incentivesData;
     // Note: do not change the layout of the above state variable and only add new state variable below.
 }

@@ -27,4 +27,6 @@ library VaultErrors {
     error CallNotAllowed();
     error AssetAlreadyAdded();
     error AssetNotAdded();
+    error InvalidRewardToken();
+    error InvalidProof();
 }

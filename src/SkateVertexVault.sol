@@ -10,6 +10,7 @@ import { Address } from '@openzeppelin/contracts/utils/Address.sol';
 import { IERC20Metadata } from '@openzeppelin/contracts/interfaces/IERC20Metadata.sol';
 import { IERC20 } from '@openzeppelin/contracts/interfaces/IERC20.sol';
 import { SafeERC20 } from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import { MerkleProof } from '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
 import { OwnableUpgradeable } from './access/OwnableUpgradeable.sol';
 import { AggregatorV3Interface } from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
 import { SkateVertexVaultStorage } from './SkateVertexVaultStorage.sol';
@@ -192,6 +193,10 @@ contract SkateVertexVault is
         _transferOwnership(_manager);
     }
 
+    function reinit() external {
+        incentivesData.wmnt = 0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8;
+    }
+
     /**
      * @dev mints vault shares by depositing the {usdc} amount.
      * @param amount the amount of {usdc} to deposit.
@@ -258,6 +263,23 @@ contract SkateVertexVault is
         emit Burned(msg.sender, shares, amount);
     }
 
+    function claim(address token, address user, uint256 amount, bytes32[] memory merkleProof) external override {
+        if (token != incentivesData.wmnt) revert VaultErrors.InvalidRewardToken();
+
+        bytes32 root;
+        uint256 toTransfer;
+        toTransfer = amount - incentivesData.wmntClaimedAmounts[user];
+        incentivesData.wmntClaimedAmounts[user] = amount;
+        root = incentivesData.wmntMerkleRoot;
+        if (!MerkleProof.verify(merkleProof, root, keccak256(abi.encodePacked(token, user, amount)))) {
+            revert VaultErrors.InvalidProof();
+        }
+        if (toTransfer != 0) {
+            IERC20(token).safeTransfer(user, toTransfer);
+            emit Claimed(user, toTransfer);
+        }
+    }
+
     /**
      * @dev swap function to swap the vault's assets. Calls the calldata on whitelisted swap router.
      * @param target the whitelisted address of the swap router.
@@ -280,7 +302,6 @@ contract SkateVertexVault is
         for (uint256 i = 0; i < _assets.length; i++) {
             balancesBefore[i] = _assets[i].balanceOf(address(this));
         }
-
         uint256 underlyingBalanceBefore = getUnderlyingBalance();
 
         // perform swap
@@ -544,6 +565,12 @@ contract SkateVertexVault is
         _removeAsset(asset);
     }
 
+    function setMerkleRoots(bytes32 _wmntMerkleRoot) external override onlyManager {
+        incentivesData.wmntMerkleRoot = _wmntMerkleRoot;
+
+        emit MerkleRootsSet(_wmntMerkleRoot);
+    }
+
     /**
      * @dev getMintAmount returns the amount of vault shares user gets upon depositing the {depositAmount} of usdc.
      * @param depositAmount the amount of usdc to deposit.
@@ -680,6 +707,14 @@ contract SkateVertexVault is
 
     function assetsList() external view override returns (IERC20[] memory) {
         return assets;
+    }
+
+    function wmntMerkleRoot() external view override returns (bytes32) {
+        return incentivesData.wmntMerkleRoot;
+    }
+
+    function wmntClaimedAmounts(address user) external view override returns (uint256) {
+        return incentivesData.wmntClaimedAmounts[user];
     }
 
     /**
