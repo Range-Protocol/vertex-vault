@@ -10,7 +10,6 @@ import { Address } from '@openzeppelin/contracts/utils/Address.sol';
 import { IERC20Metadata } from '@openzeppelin/contracts/interfaces/IERC20Metadata.sol';
 import { IERC20 } from '@openzeppelin/contracts/interfaces/IERC20.sol';
 import { SafeERC20 } from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import { MerkleProof } from '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
 import { OwnableUpgradeable } from './access/OwnableUpgradeable.sol';
 import { AggregatorV3Interface } from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
 import { SkateVertexVaultStorage } from './SkateVertexVaultStorage.sol';
@@ -118,13 +117,10 @@ contract SkateVertexVault is
         upgrader = _upgrader;
 
         addProduct(0);
-        addProduct(1);
-        addProduct(2);
-        addProduct(3);
         addProduct(4);
+        addProduct(117);
 
-        IERC20 wETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
-        IERC20 wBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+        IERC20 wETH = IERC20(0x4200000000000000000000000000000000000006);
 
         // add usdc as asset.
         _addAsset(
@@ -133,7 +129,7 @@ contract SkateVertexVault is
                 idx: 0,
                 spotId: 0,
                 perpId: 0,
-                priceFeed: AggregatorV3Interface(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3),
+                priceFeed: AggregatorV3Interface(0x7e860098F58bBFC8648a4311b374B1D669a2bc6B),
                 heartbeat: 86_400 + 1800
             })
         );
@@ -143,21 +139,9 @@ contract SkateVertexVault is
             wETH,
             AssetData({
                 idx: 0,
-                spotId: 3,
+                spotId: 117,
                 perpId: 4,
-                priceFeed: AggregatorV3Interface(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612),
-                heartbeat: 86_400 + 1800
-            })
-        );
-
-        // add wBTC as asset.
-        _addAsset(
-            wBTC,
-            AssetData({
-                idx: 0,
-                spotId: 1,
-                perpId: 2,
-                priceFeed: AggregatorV3Interface(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57),
+                priceFeed: AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70),
                 heartbeat: 86_400 + 1800
             })
         );
@@ -171,10 +155,6 @@ contract SkateVertexVault is
         targets.push(address(wETH));
         emit TargetAddedToWhitelist(address(wETH));
 
-        whitelistedTargets[address(wBTC)] = true;
-        targets.push(address(wBTC));
-        emit TargetAddedToWhitelist(address(wBTC));
-
         // whitelist endpoint contract to allow manager to deposit and withdraw assets to and from Vertex using
         // multicallByManager function.
         whitelistedTargets[address(endpoint)] = true;
@@ -182,18 +162,13 @@ contract SkateVertexVault is
         emit TargetAddedToWhitelist(address(endpoint));
 
         // whitelisting native router, so this router could be called in swap function to perform swap between assets.
-        address nativeRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
+        address nativeRouter = 0x41d7B3abCFECf1F1B4B1B962DA8F086114b6CC5a;
         whitelistedSwapRouters[nativeRouter] = true;
         swapRouters.push(nativeRouter);
         emit SwapRouterAddedToWhitelist(nativeRouter);
         swapThreshold = 9995;
 
         _transferOwnership(_manager);
-    }
-
-    function reinit() external {
-        incentivesData.arb = 0x912CE59144191C1204E64559FE8253a0e49E6548;
-        incentivesData.vrtx = 0x95146881b86B3ee99e63705eC87AfE29Fcc044D9;
     }
 
     /**
@@ -260,29 +235,6 @@ contract SkateVertexVault is
         if (usdc.balanceOf(address(this)) < amount) revert VaultErrors.NotEnoughBalanceInVault();
         usdc.safeTransfer(msg.sender, amount);
         emit Burned(msg.sender, shares, amount);
-    }
-
-    function claim(address token, address user, uint256 amount, bytes32[] memory merkleProof) external override {
-        if (token != incentivesData.arb && token != incentivesData.vrtx) revert VaultErrors.InvalidRewardToken();
-
-        bytes32 root;
-        uint256 toTransfer;
-        if (token == incentivesData.arb) {
-            toTransfer = amount - incentivesData.arbClaimedAmounts[user];
-            incentivesData.arbClaimedAmounts[user] = amount;
-            root = incentivesData.arbMerkleRoot;
-        } else {
-            toTransfer = amount - incentivesData.vrtxClaimedAmounts[user];
-            incentivesData.vrtxClaimedAmounts[user] = amount;
-            root = incentivesData.vrtxMerkleRoot;
-        }
-        if (!MerkleProof.verify(merkleProof, root, keccak256(abi.encodePacked(token, user, amount)))) {
-            revert VaultErrors.InvalidProof();
-        }
-        if (toTransfer != 0) {
-            IERC20(token).safeTransfer(user, toTransfer);
-            emit Claimed(user, toTransfer);
-        }
     }
 
     /**
@@ -571,13 +523,6 @@ contract SkateVertexVault is
         _removeAsset(asset);
     }
 
-    function setMerkleRoots(bytes32 _arbMerkleRoot, bytes32 _vrtxMerkleRoot) external override onlyManager {
-        incentivesData.arbMerkleRoot = _arbMerkleRoot;
-        incentivesData.vrtxMerkleRoot = _vrtxMerkleRoot;
-
-        emit MerkleRootsSet(_arbMerkleRoot, _vrtxMerkleRoot);
-    }
-
     /**
      * @dev getMintAmount returns the amount of vault shares user gets upon depositing the {depositAmount} of usdc.
      * @param depositAmount the amount of usdc to deposit.
@@ -605,7 +550,7 @@ contract SkateVertexVault is
     }
 
     /**
-     * @dev returns underlying vault holding in {usdc}. The vault holding represents passive USDC, wBTC and wETH in the vault
+     * @dev returns underlying vault holding in {usdc}. The vault holding represents passive USDC and wETH in the vault
      * along with any PnL from the whitelisted perp products on the Vertex protocol.
      * @return vaultBalance the total holding of the vault in USDC.
      */
@@ -652,7 +597,7 @@ contract SkateVertexVault is
     }
 
     /**
-     * @dev returns the asset's (wETH or wBTC) amount in usdc.
+     * @dev returns the asset's (wETH) amount in usdc.
      * @param asset the address of the asset.
      * @param usdcPrice the price of usdc (passed as param for caching purpose)
      * @param usdcDecimalsMultiplier the decimals multiplier for usdc (passed as param for caching purpose)
@@ -714,22 +659,6 @@ contract SkateVertexVault is
 
     function assetsList() external view override returns (IERC20[] memory) {
         return assets;
-    }
-
-    function arbMerkleRoot() external view override returns (bytes32) {
-        return incentivesData.arbMerkleRoot;
-    }
-
-    function vrtxMerkleRoot() external view override returns (bytes32) {
-        return incentivesData.vrtxMerkleRoot;
-    }
-
-    function arbClaimedAmounts(address user) external view override returns (uint256) {
-        return incentivesData.arbClaimedAmounts[user];
-    }
-
-    function vrtxClaimedAmounts(address user) external view override returns (uint256) {
-        return incentivesData.vrtxClaimedAmounts[user];
     }
 
     /**

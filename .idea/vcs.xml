@@ -3,8 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/chainlink" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/lib/chainlink/contracts/foundry-lib/forge-std" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/lib/chainlink/contracts/foundry-lib/forge-std/lib/ds-test" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/forge-std" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/forge-std/lib/ds-test" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/openzeppelin-contracts" vcs="Git" />
