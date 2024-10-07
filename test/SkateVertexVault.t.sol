@@ -28,11 +28,11 @@ contract SkateProtocolVertexVaultTest is Test {
     error FailedInnerCall();
     error EnforcedPause();
 
-    ISpotEngine spotEngine = ISpotEngine(0xe818be1DA4E53763bC77df904aD1B5A1C5A61626);
-    IPerpEngine perpEngine = IPerpEngine(0x5BD184F408932F9E6bA00e44A071bCCb8977fb47);
-    IEndpoint endpoint = IEndpoint(0x92C2201D48481e2d42772Da02485084A4407Bbe2);
-    IUSDC usdc = IUSDC(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
-    IERC20 wETH = IERC20(0x4200000000000000000000000000000000000006);
+    ISpotEngine spotEngine = ISpotEngine(0x3E113cde3D6309e9bd45Bf7E273ecBB8b50ca127);
+    IPerpEngine perpEngine = IPerpEngine(0x0F54f46979C62aB73D03Da60eBE044c8D63F724f);
+    IEndpoint endpoint = IEndpoint(0x2777268EeE0d224F99013Bc4af24ec756007f1a6);
+    IUSDC usdc = IUSDC(0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1);
+    IERC20 wETH = IERC20(0x160345fC359604fC6e70E3c5fAcbdE5F7A9342d8);
 
     SkateVertexVault vault;
     address manager = 0x38E292E52302351aAdf5Ef51D4d3bb30bD355b25;
@@ -40,9 +40,10 @@ contract SkateProtocolVertexVaultTest is Test {
     //    address swapRouter = 0xEAd050515E10fDB3540ccD6f8236C46790508A76;
 
     function setUp() external {
-        uint256 fork = vm.createFork(vm.rpcUrl('base'));
+        uint256 fork = vm.createFork(vm.rpcUrl('sei'));
         vm.selectFork(fork);
-        vm.prank(0xF977814e90dA44bFA03b6295A0616a897441aceC);
+        console2.log(usdc.balanceOf(0xEB2b89F1dEA00d1120B39189f2a1e3744B647bb4));
+        vm.prank(0xEB2b89F1dEA00d1120B39189f2a1e3744B647bb4);
         usdc.transfer(manager, 100_000 * 10 ** 6);
 
         address vaultImpl = address(new SkateVertexVault());
@@ -71,10 +72,10 @@ contract SkateProtocolVertexVaultTest is Test {
     function testDeployment() external {
         ISkateVertexVault.AssetData[] memory assetsDataList = new ISkateVertexVault.AssetData[](3);
         assetsDataList[0] = ISkateVertexVault.AssetData(
-            0, 0, 0, AggregatorV3Interface(0x7e860098F58bBFC8648a4311b374B1D669a2bc6B), 86_400 + 1800
+            0, 0, 0, AggregatorV3Interface(0x2eE9A7d22482905e7bb5E0aD832Be0DdB4d5582f), 86_400 + 1800
         );
         assetsDataList[1] = ISkateVertexVault.AssetData(
-            1, 117, 4, AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70), 86_400 + 1800
+            1, 10_003, 4, AggregatorV3Interface(0xEFc092F9D1Fd756D6788C5E8c1043Ed7a7F423Df), 86_400 + 1800
         );
         IERC20[] memory assets = vault.assetsList();
         for (uint256 i = 0; i < assets.length; i++) {
@@ -92,8 +93,8 @@ contract SkateProtocolVertexVaultTest is Test {
         assertEq(vault.targets(0), address(usdc));
         assertEq(vault.whitelistedTargets(address(endpoint)), true);
         assertEq(vault.targets(2), address(endpoint));
-        assertEq(vault.whitelistedSwapRouters(address(0x41d7B3abCFECf1F1B4B1B962DA8F086114b6CC5a)), true);
-        assertEq(vault.swapRouters(0), address(0x41d7B3abCFECf1F1B4B1B962DA8F086114b6CC5a));
+//        assertEq(vault.whitelistedSwapRouters(address(0x41d7B3abCFECf1F1B4B1B962DA8F086114b6CC5a)), true);
+//        assertEq(vault.swapRouters(0), address(0x41d7B3abCFECf1F1B4B1B962DA8F086114b6CC5a));
         assertEq(vault.swapThreshold(), 9995);
     }
 
@@ -147,7 +148,7 @@ contract SkateProtocolVertexVaultTest is Test {
         vault.addAsset(
             wETH,
             ISkateVertexVault.AssetData(
-                1, 117, 4, AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70), 86_400 + 1800
+                1, 10_003, 4, AggregatorV3Interface(0xEFc092F9D1Fd756D6788C5E8c1043Ed7a7F423Df), 86_400 + 1800
             )
         );
         (idx, spotId,,,) = vault.assetsData(wETH);
@@ -159,7 +160,7 @@ contract SkateProtocolVertexVaultTest is Test {
         vault.addAsset(
             wETH,
             ISkateVertexVault.AssetData(
-                1, 117, 4, AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70), 86_400 + 1800
+                1, 10_003, 4, AggregatorV3Interface(0xEFc092F9D1Fd756D6788C5E8c1043Ed7a7F423Df), 86_400 + 1800
             )
         );
     }

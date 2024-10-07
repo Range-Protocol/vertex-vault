@@ -10,11 +10,11 @@ import { IPerpEngine } from '../src/interfaces/vertex/IPerpEngine.sol';
 import { IEndpoint } from '../src/interfaces/vertex/IEndpoint.sol';
 
 contract deployVault is Script {
-    ISpotEngine spotEngine = ISpotEngine(0xe818be1DA4E53763bC77df904aD1B5A1C5A61626);
-    IPerpEngine perpEngine = IPerpEngine(0x5BD184F408932F9E6bA00e44A071bCCb8977fb47);
-    IEndpoint endpoint = IEndpoint(0x92C2201D48481e2d42772Da02485084A4407Bbe2);
-    address USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
-    address manager = 0x38E292E52302351aAdf5Ef51D4d3bb30bD355b25;
+    ISpotEngine spotEngine = ISpotEngine(0x3E113cde3D6309e9bd45Bf7E273ecBB8b50ca127);
+    IPerpEngine perpEngine = IPerpEngine(0x0F54f46979C62aB73D03Da60eBE044c8D63F724f);
+    IEndpoint endpoint = IEndpoint(0x2777268EeE0d224F99013Bc4af24ec756007f1a6);
+    address USDC = 0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1;
+    address manager = 0xBBE307DB73D8fD981A7dAB929E2a41225CF0658A;
     address upgrader = 0xBBE307DB73D8fD981A7dAB929E2a41225CF0658A;
 
     function run() external {

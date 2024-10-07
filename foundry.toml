@@ -3,9 +3,10 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.20"
+evm_version = "shanghai"
 
 [rpc_endpoints]
-base = "https://base-mainnet.g.alchemy.com/v2/CN5-t-oBuWtsTyv_FMaLadwOPJkLCBDc"
+sei = "https://evm-rpc.sei-apis.com"
 
 [fmt]
 int_types = "long"

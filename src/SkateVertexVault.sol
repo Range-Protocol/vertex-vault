@@ -116,11 +116,13 @@ contract SkateVertexVault is
         _setManagingFee(100); // set 1% as managing fee
         upgrader = _upgrader;
 
-        addProduct(0);
-        addProduct(4);
-        addProduct(117);
+        addProduct(0); // USDC spot
+        addProduct(2); // BTC perp. We do not add asset for WBTC since it does not exist on SEI. Only Perp is supported.
+        // we only add asset if we need them for spot (deposit, passive balance or spot balance on vertex)
+        addProduct(4); // ETH perp
+        addProduct(10_003); // ETH spot. Spot is only supported through RFQ since vertex SEI does not support ETH spot
 
-        IERC20 wETH = IERC20(0x4200000000000000000000000000000000000006);
+        IERC20 wETH = IERC20(0x160345fC359604fC6e70E3c5fAcbdE5F7A9342d8);
 
         // add usdc as asset.
         _addAsset(
@@ -129,19 +131,18 @@ contract SkateVertexVault is
                 idx: 0,
                 spotId: 0,
                 perpId: 0,
-                priceFeed: AggregatorV3Interface(0x7e860098F58bBFC8648a4311b374B1D669a2bc6B),
+                priceFeed: AggregatorV3Interface(0x2eE9A7d22482905e7bb5E0aD832Be0DdB4d5582f),
                 heartbeat: 86_400 + 1800
             })
         );
 
-        // add wETH as asset.
         _addAsset(
             wETH,
             AssetData({
                 idx: 0,
-                spotId: 117,
+                spotId: 10_003,
                 perpId: 4,
-                priceFeed: AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70),
+                priceFeed: AggregatorV3Interface(0xEFc092F9D1Fd756D6788C5E8c1043Ed7a7F423Df),
                 heartbeat: 86_400 + 1800
             })
         );
@@ -162,10 +163,10 @@ contract SkateVertexVault is
         emit TargetAddedToWhitelist(address(endpoint));
 
         // whitelisting native router, so this router could be called in swap function to perform swap between assets.
-        address nativeRouter = 0x41d7B3abCFECf1F1B4B1B962DA8F086114b6CC5a;
-        whitelistedSwapRouters[nativeRouter] = true;
-        swapRouters.push(nativeRouter);
-        emit SwapRouterAddedToWhitelist(nativeRouter);
+//        address nativeRouter = 0x41d7B3abCFECf1F1B4B1B962DA8F086114b6CC5a;
+//        whitelistedSwapRouters[nativeRouter] = true;
+//        swapRouters.push(nativeRouter);
+//        emit SwapRouterAddedToWhitelist(nativeRouter);
         swapThreshold = 9995;
 
         _transferOwnership(_manager);
